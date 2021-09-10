@@ -1,0 +1,38 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=2]
+
+[sub_resource type="VisualShaderNodeColorConstant" id=1]
+constant = Color( 0.48, 0.346, 0.1584, 1 )
+
+[sub_resource type="VisualShader" id=2]
+code = "shader_type spatial;
+render_mode specular_schlick_ggx;
+
+
+
+
+void vertex() {
+// Output:0
+
+}
+
+void fragment() {
+// Color:3
+	vec3 n_out3p0 = vec3(0.480000, 0.346000, 0.158400);
+	float n_out3p1 = 1.000000;
+
+// Output:0
+	ALBEDO = n_out3p0;
+
+}
+
+void light() {
+// Output:0
+
+}
+"
+nodes/fragment/3/node = SubResource( 1 )
+nodes/fragment/3/position = Vector2( -100, 140 )
+nodes/fragment/connections = PoolIntArray( 3, 0, 0, 0 )
+
+[resource]
+shader = SubResource( 2 )

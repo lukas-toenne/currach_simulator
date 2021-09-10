@@ -1,0 +1,59 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://scripts/boat_camera.gd" type="Script" id=2]
+[ext_resource path="res://scripts/water_surface.gd" type="Script" id=3]
+[ext_resource path="res://shaders/water.gdshader" type="Shader" id=4]
+[ext_resource path="res://shaders/terrain.gdshader" type="Shader" id=5]
+[ext_resource path="res://default_env.tres" type="Environment" id=6]
+
+[sub_resource type="PlaneMesh" id=1]
+size = Vector2( 40, 40 )
+subdivide_width = 80
+subdivide_depth = 80
+
+[sub_resource type="ShaderMaterial" id=2]
+render_priority = 20
+shader = ExtResource( 4 )
+
+[sub_resource type="ShaderMaterial" id=3]
+shader = ExtResource( 5 )
+shader_param/albedo = Color( 0.713726, 0.701961, 0.588235, 1 )
+shader_param/specular = 0.5
+shader_param/metallic = 0.0
+shader_param/roughness = 1.0
+shader_param/point_size = 1.0
+shader_param/uv1_scale = Vector3( 1, 1, 1 )
+shader_param/uv1_offset = Vector3( 0, 0, 0 )
+shader_param/uv2_scale = Vector3( 1, 1, 1 )
+shader_param/uv2_offset = Vector3( 0, 0, 0 )
+shader_param/noise_scale = 8.689
+shader_param/noise_origin = Vector2( 15.054, 0 )
+shader_param/noise_amplitude = 4.0
+
+[sub_resource type="PlaneMesh" id=4]
+material = SubResource( 3 )
+size = Vector2( 40, 40 )
+subdivide_width = 60
+subdivide_depth = 60
+
+[node name="Spatial" type="Spatial"]
+
+[node name="InstancePos" type="Spatial" parent="."]
+transform = Transform( 0.836463, -0.340921, -0.429072, 0.30334, 0.940092, -0.155601, 0.456415, 0, 0.889767, 0.170371, 2.96614, 0 )
+
+[node name="Camera" type="Camera" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.47266, 7.88258 )
+script = ExtResource( 2 )
+
+[node name="WaterSurface" type="MeshInstance" parent="."]
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )
+script = ExtResource( 3 )
+
+[node name="Terrain" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.652677, 0 )
+mesh = SubResource( 4 )
+material/0 = null
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource( 6 )
