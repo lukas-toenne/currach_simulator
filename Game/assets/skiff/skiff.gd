@@ -5,7 +5,7 @@ export(float) var forward_force = 1.0
 export(float) var back_force = 1.0
 export(float) var stop_drag = 1.0
 
-onready var anim_tree: AnimationTree = get_node("AnimationTree")
+onready var anim_tree: AnimationTree = $AnimationTree
 onready var skel: Skeleton = get_node("CollisionShape/skiff/SkiffRig/Skeleton")
 onready var hull: int = skel.find_bone("hull")
 onready var oar_info_l: SkiffOarInfo = SkiffOarInfo.new(self, skel, "oarlock_l", "oar_blade_l", "force_l", "OarAudioL")

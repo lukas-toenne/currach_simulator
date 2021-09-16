@@ -20,11 +20,14 @@ func _on_exit_pressed():
 		get_tree().quit()
 
 func load_scene(boat):
-	var vessel = load(boat).instance()
-	vessel.set_name("boat")
 	level = load("res://puddle.tscn").instance()
-	level.add_child(vessel)
-	level.get_node("Camera").target_node = vessel
-	vessel.transform = level.get_node("InstancePos").transform
-#	level.get_node("Back").connect("pressed", self, "_on_Back_pressed")
 	get_parent().add_child(level)
+	
+	var vessel = load(boat).instance()
+	level.add_child(vessel)
+	vessel.set_name("boat")
+	vessel.wave_sampler = level.get_node("WaveSampler")
+	vessel.transform = level.get_node("InstancePos").transform
+
+#	level.get_node("Camera").target_node = vessel
+#	level.get_node("Back").connect("pressed", self, "_on_Back_pressed")

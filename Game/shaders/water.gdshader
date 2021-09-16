@@ -1,106 +1,15 @@
 shader_type spatial;
 render_mode diffuse_lambert;
 render_mode specular_schlick_ggx;
-//
-//// hash and noise functions by Inigo Quilez, published under MIT license
-//// https://www.shadertoy.com/view/Xsl3Dl
-////
-//// The MIT License
-//// Copyright © 2013 Inigo Quilez
-//// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-//// Based on water shader by Ronny Mühle, published under MIT license
-//// https://github.com/Platinguin/Godot-Water-Shader-Prototype
-////
-////MIT License
-////
-////Copyright (c) 2020 Ronny Mühle
-////
-////Permission is hereby granted, free of charge, to any person obtaining a copy
-////of this software and associated documentation files (the "Software"), to deal
-////in the Software without restriction, including without limitation the rights
-////to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-////copies of the Software, and to permit persons to whom the Software is
-////furnished to do so, subject to the following conditions:
-////
-////The above copyright notice and this permission notice shall be included in all
-////copies or substantial portions of the Software.
-////
-////THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-////IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-////FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-////AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-////LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-////OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-////SOFTWARE.
-//
-//vec3 hash(vec3 p) {
-//    p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
-//             dot(p, vec3(269.5, 183.3, 246.1)),
-//             dot(p, vec3(113.5, 271.9, 124.6)));
-//
-//    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
-//}
-//
-//float noise(vec3 p) {
-//  vec3 i = floor(p);
-//  vec3 f = fract(p);
-//  vec3 u = f * f * (3.0 - 2.0 * f);
-//
-//  return mix(mix(mix(dot(hash(i + vec3(0.0, 0.0, 0.0)), f - vec3(0.0, 0.0, 0.0)),
-//                     dot(hash(i + vec3(1.0, 0.0, 0.0)), f - vec3(1.0, 0.0, 0.0)), u.x),
-//                 mix(dot(hash(i + vec3(0.0, 1.0, 0.0)), f - vec3(0.0, 1.0, 0.0)),
-//                     dot(hash(i + vec3(1.0, 1.0, 0.0)), f - vec3(1.0, 1.0, 0.0)), u.x), u.y),
-//             mix(mix(dot(hash(i + vec3(0.0, 0.0, 1.0)), f - vec3(0.0, 0.0, 1.0)),
-//                     dot(hash(i + vec3(1.0, 0.0, 1.0)), f - vec3(1.0, 0.0, 1.0)), u.x),
-//                 mix(dot(hash(i + vec3(0.0, 1.0, 1.0)), f - vec3(0.0, 1.0, 1.0)),
-//                     dot(hash(i + vec3(1.0, 1.0, 1.0)), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
-//}
-//
-//float fbm(vec3 x) {
-//  float height = 0.0;
-//  float amplitude = 0.5;
-//  float frequency = 1.0;
-//  for (int i = 0; i < 3; i++){
-//    height += noise(x * frequency) * amplitude;
-//    amplitude *= 0.5;
-//    frequency *= 2.0;
-//  }
-//  return height;
-//}
 
-// EGIN_IMPORT res://shaders/water.gdshader
+// BEGIN_IMPORT res://shaders/waves.gdshader
+
 // hash and noise functions by Inigo Quilez, published under MIT license
 // https://www.shadertoy.com/view/Xsl3Dl
 //
 // The MIT License
 // Copyright © 2013 Inigo Quilez
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-// Based on water shader by Ronny Mühle, published under MIT license
-// https://github.com/Platinguin/Godot-Water-Shader-Prototype
-//
-//MIT License
-//
-//Copyright (c) 2020 Ronny Mühle
-//
-//Permission is hereby granted, free of charge, to any person obtaining a copy
-//of this software and associated documentation files (the "Software"), to deal
-//in the Software without restriction, including without limitation the rights
-//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//copies of the Software, and to permit persons to whom the Software is
-//furnished to do so, subject to the following conditions:
-//
-//The above copyright notice and this permission notice shall be included in all
-//copies or substantial portions of the Software.
-//
-//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-//SOFTWARE.
 
 vec3 hash(vec3 p) {
     p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
@@ -136,39 +45,32 @@ float fbm(vec3 x) {
   }
   return height;
 }
-// END_IMPORT
 
-uniform float time = 0.0;
+
+const float PI = 3.14159265359;
+
 uniform float wave_length = 10.0;
 uniform float phase_speed = 1.0;
 uniform float phase = 0.0;
 uniform float amplitude_linear = 1.0;
 uniform float amplitude_random = 1.0;
-uniform vec2 direction = vec2(1.0, 0.0);
-uniform sampler2D wave_shape;
+uniform vec2 direction = vec2(4.0, -1.0);
 
-uniform vec4 water_color: hint_color = vec4(0, 0, 1, 1);
-uniform float water_color_depth = 1.0;
-uniform float sss_strength = 7.0;
-uniform float beach_alpha_fadeout = 0.05;
-
-const float PI = 3.14159265359;
-
-float waves_linear(vec2 pos)
+float waves_linear(vec2 pos, float t)
 {
 	vec2 k = 2.0 * PI / wave_length * normalize(direction);
-	return sin(dot(k, pos) - phase_speed * time + phase);
+	return sin(dot(k, pos) - phase_speed * t + phase);
 }
 
-float waves_random(vec2 pos)
+float waves_random(vec2 pos, float t)
 {
 	float k = 2.0 * PI / wave_length;
-	return fbm(vec3(k * pos, phase_speed * time + phase));
+	return fbm(vec3(k * pos, phase_speed * t + phase));
 }
 
-float waves_sum(vec2 pos)
+float waves_sum(vec2 pos, float t)
 {
-	return amplitude_linear * waves_linear(pos) + amplitude_random * waves_random(pos);
+	return amplitude_linear * waves_linear(pos, t) + amplitude_random * waves_random(pos, t);
 }
 
 void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
@@ -179,25 +81,59 @@ void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
 	pos -= ofs;
 }
 
-void waves(vec2 pos, out vec3 vertex, out vec3 normal)
+void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
 {
 	float eps = 0.01;
 	vec2 e = vec2(eps, 0.0);
 	
-	float h = waves_sum(pos);
-	vec2 dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
+	float h = waves_sum(pos, t);
+	dhdt = dt > 0.0 ? (waves_sum(pos, t + dt) - h) / dt : 0.0;
+	dhdp = vec2(waves_sum(pos + e.xy, t) - waves_sum(pos - e.xy, t), waves_sum(pos + e.yx, t) - waves_sum(pos - e.yx, t)) / (2.0*eps);
 	
 //	trochoidal_wave(pos, h, dh);
 //	dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
 	
 	vertex = vec3(pos.x, h, pos.y);
-	normal = normalize(vec3(-dh.x, 1.0, -dh.y));
 }
+
+// END_IMPORT
+
+// Based on water shader by Ronny Mühle, published under MIT license
+// https://github.com/Platinguin/Godot-Water-Shader-Prototype
+//
+//MIT License
+//
+//Copyright (c) 2020 Ronny Mühle
+//
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in all
+//copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//SOFTWARE.
+
+uniform float time = 0.0;
+uniform vec4 water_color: hint_color = vec4(0, 0, 1, 1);
+uniform float water_color_depth = 1.0;
+uniform float sss_strength = 7.0;
+uniform float beach_alpha_fadeout = 0.05;
 
 void vertex()
 {
-	vec3 wave_normal;
-	waves(VERTEX.xz, VERTEX, wave_normal);
+	float dhdt;
+	vec2 dhdp;
+	waves(VERTEX.xz, VERTEX, dhdt, dhdp, time, 0.0);
 	
 //	float camera_distance = length(CAMERA_MATRIX[3].xyz - (WORLD_MATRIX[3].xyz - VERTEX)) / 1000.0;
 //	COLOR[0] = camera_distance;
@@ -207,10 +143,11 @@ void fragment()
 {
 	vec2 wave_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xz;
 	vec3 wave_vertex;
-	vec3 wave_normal;
-	waves(wave_pos, wave_vertex, wave_normal);
+	float wave_dhdt;
+	vec2 wave_dhdp;
+	waves(wave_pos, wave_vertex, wave_dhdt, wave_dhdp, time, 0.0);
 	
-	vec3 normal_output = vec3(wave_normal.x, -wave_normal.z, wave_normal.y) * 0.5 + 0.5;
+	vec3 normal_output = normalize(vec3(-wave_dhdp.x, wave_dhdp.y, 1.0)) * 0.5 + 0.5;
 
 	// UNDERWATER
 	float depth = texture(DEPTH_TEXTURE, SCREEN_UV).r; // LOOSING SS-REFLECTIONS
@@ -268,4 +205,9 @@ void light()
 	DIFFUSE_LIGHT += (LIGHT_COLOR * ALBEDO * ATTENUATION / pi) * sss;
 	DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * (spec + spec_glare);
 }
+
+
+
+
+
 

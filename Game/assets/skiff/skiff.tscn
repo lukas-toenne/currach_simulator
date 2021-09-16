@@ -205,7 +205,7 @@ nodes/TransitionLeft/position = Vector2( -226.667, -40 )
 nodes/TransitionRight/node = SubResource( 22 )
 nodes/TransitionRight/position = Vector2( -226.667, 293.333 )
 nodes/output/position = Vector2( 506.667, 80 )
-node_connections = [ "output", 0, "AddLeftRight", "AddLeftRight", 0, "TransitionLeft", "AddLeftRight", 1, "TransitionRight", "TimeScale", 0, "Animation 7", "TimeScale 2", 0, "Animation", "TimeScale 3", 0, "Animation 3", "TransitionRight", 0, "Animation 2", "TransitionRight", 1, "TimeScale 3", "TransitionRight", 2, "TimeScale 4", "TransitionRight", 3, "Animation 5", "TimeScale 4", 0, "Animation 4", "TransitionLeft", 0, "Animation 6", "TransitionLeft", 1, "TimeScale", "TransitionLeft", 2, "TimeScale 2", "TransitionLeft", 3, "Animation 8" ]
+node_connections = [ "output", 0, "AddLeftRight", "AddLeftRight", 0, "TransitionLeft", "AddLeftRight", 1, "TransitionRight", "TimeScale 3", 0, "Animation 3", "TimeScale 2", 0, "Animation", "TimeScale", 0, "Animation 7", "TimeScale 4", 0, "Animation 4", "TransitionLeft", 0, "Animation 6", "TransitionLeft", 1, "TimeScale", "TransitionLeft", 2, "TimeScale 2", "TransitionLeft", 3, "Animation 8", "TransitionRight", 0, "Animation 2", "TransitionRight", 1, "TimeScale 3", "TransitionRight", 2, "TimeScale 4", "TransitionRight", 3, "Animation 5" ]
 
 [node name="SkiffBody" type="RigidBody"]
 script = ExtResource( 8 )

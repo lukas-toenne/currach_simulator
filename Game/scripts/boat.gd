@@ -8,18 +8,17 @@ export(Vector3) var buoyancy_torque = Vector3(5.0, 0.5, 2.0)
 export(Vector3) var buoyancy_linear_damp = Vector3(1.5, 5.0, 0.3)
 export(float) var buoyancy_angular_damp = 1.0
 
-var _water: WaterSurface
+var wave_sampler
 
 var _buoyX: Array
 var _buoyGram: Basis
+var _buoyID: Array
 
 const BuoyNodes = 0
 const BuoyGrid = 1
 const BuoyRandom = 2
 
 func _ready():
-	_water = get_parent().get_node("WaterSurface")
-
 	# Precompute Gram matrix for computing water normal with linear regression
 	var X = []
 	var mode = BuoyGrid
@@ -43,6 +42,10 @@ func _ready():
 		for i in range(N):
 			X[i] = Vector3(1.0, rng.randf_range(-1, 1), rng.randf_range(-1, 1))
 	_buoyX = X
+	_buoyID = Array()
+	_buoyID.resize(X.size())
+	for i in range(X.size()):
+		_buoyID[i] = -1
 
 	# TODO better conditioning for the inverse
 	var M = Basis(Vector3(0, 0, 0), Vector3(0, 0, 0), Vector3(0, 0, 0))
@@ -85,16 +88,18 @@ func _draw_forces(state: PhysicsDirectBodyState, force: Vector3, drag: Vector3, 
 func _integrate_forces(state):
 	var b = Vector3(0, 0, 0)
 	var dbdt = Vector3(0, 0, 0)
-	for buoy in _buoyX:
-		var pos = Vector3(buoy.y, 0.0, buoy.z) + state.transform.origin
+	for i in range(_buoyX.size()):
+		if _buoyID[i] < 0:
+			continue
 
-		# Returns [h, dhdt, normal]
-		var res = _water.waves(Vector2(pos.x, pos.z), _water.time, state.step)
-		var h = res[0] - state.transform.origin.y - buoyancy_offset
+		# Returns [position, speed (dh/dt), derivative (dh/dx, dh/dz)]
+		var res = wave_sampler.get_wave(_buoyID[i])
+		var h = res[0].y - state.transform.origin.y - buoyancy_offset
 		# Ignoring lateral velocity components
 		var dhdt = res[1]
-#		var hnor = res[2]
+#		var hnor = Vector3(-res[2].x, 1.0, -res[2].z).normalized()
 		
+		var buoy = _buoyX[i]
 		b += h * buoy
 		dbdt += dhdt * buoy
 	
@@ -131,3 +136,9 @@ func _integrate_forces(state):
 		state.add_torque(torque)
 		
 		_draw_forces(state, force, drag, torque)
+
+
+func _physics_process(delta):
+	for i in range(_buoyX.size()):
+		var pos = Vector3(_buoyX[i].y, 0.0, _buoyX[i].z) + transform.origin
+		_buoyID[i] = wave_sampler.add_point(Vector2(pos.x, pos.z))

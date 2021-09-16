@@ -1,4 +1,7 @@
-shader_type spatial;
+shader_type canvas_item;
+render_mode blend_disabled, unshaded;
+
+// BEGIN_IMPORT res://shaders/waves.gdshader
 
 // hash and noise functions by Inigo Quilez, published under MIT license
 // https://www.shadertoy.com/view/Xsl3Dl
@@ -91,3 +94,38 @@ void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, fl
 	
 	vertex = vec3(pos.x, h, pos.y);
 }
+
+// END_IMPORT
+
+const int PIXELS_PER_POINT = 2;
+
+uniform float time = 0.0;
+uniform float delta_time = 0.0;
+uniform sampler2D positions;
+
+void fragment()
+{
+	ivec2 input_uv = ivec2(int(FRAGCOORD.x) / PIXELS_PER_POINT, int(FRAGCOORD.y));
+	vec4 pos = texelFetch(positions, input_uv, 0);
+
+	vec3 wpos;
+	float dhdt;
+	vec2 dhdp;
+	waves(pos.xy, wpos, dhdt, dhdp, time, delta_time);
+
+	int pixel_type = int(FRAGCOORD.x) % PIXELS_PER_POINT;
+	switch (pixel_type)
+	{
+		case 0:
+			COLOR = vec4(wpos.xyz, 1.0);
+			break;
+		case 1:
+			COLOR = vec4(dhdt, dhdp, 1.0);
+			break;
+	}
+}
+
+
+
+
+

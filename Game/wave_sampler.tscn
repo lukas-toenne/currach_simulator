@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=2]
+
+[ext_resource path="res://shaders/wave_sample.gdshader" type="Shader" id=1]
+[ext_resource path="res://scripts/wave_sampler.gd" type="Script" id=2]
+
+[sub_resource type="ShaderMaterial" id=1]
+shader = ExtResource( 1 )
+shader_param/wave_length = 10.0
+shader_param/phase_speed = 1.0
+shader_param/phase = 0.0
+shader_param/amplitude_linear = 1.0
+shader_param/amplitude_random = 1.0
+shader_param/direction = Vector2( 1, 0 )
+shader_param/time = 0.0
+shader_param/delta_time = 0.0
+
+[node name="WaveSampler" type="Viewport"]
+size = Vector2( 256, 256 )
+hdr = false
+usage = 1
+script = ExtResource( 2 )
+
+[node name="ColorRect" type="ColorRect" parent="."]
+material = SubResource( 1 )
+anchor_right = 1.0
+anchor_bottom = 1.0
