@@ -101,20 +101,21 @@ float rect(float x)
 	return x < 0.5 ? 1.0 : (x == 0.5 ? 0.5 : 0.0);
 }
 
-void wave_kernel(vec3 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
+void wave_kernel(float amplitude, vec3 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
 {
-	float a = 1.0;
-	float r = 4.0;
-	vec3 dir = vec3(normalize(direction), 0);
 	float lambda = wave_length;
+	// Clamp amplitude to avoid overlap at the crest.
+	amplitude = min(amplitude, 0.5 * lambda / PI);
+	float r = 3.0;
+	vec3 dir = vec3(normalize(direction), 0);
 	vec3 p0 = vec3(0, 0, 0);
 
 	vec3 dist = p - p0;
 
 	float l = length(dist) / r;
 	vec3 dldp = dist / (length(dist) * r);
-	float D = a * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
-	vec3 dDdp = -a * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
+	float D = amplitude * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
+	vec3 dDdp = -amplitude * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
 	
 	float u = dot(dist, dir);
 //	vec3 dudp = dir;
@@ -140,7 +141,7 @@ void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out
 	vec3 X;
 	mat3 dXdp;
 	vec3 dXdt;
-	wave_kernel(vec3(uv.x, -uv.y, 0), t, dt, X, dXdt, dXdp);
+	wave_kernel(2.5, vec3(uv.x, -uv.y, 0), t, dt, X, dXdt, dXdp);
 	position = vec3(X.x, X.z, -X.y);
 	velocity = vec3(dXdt.x, dXdt.z, -dXdt.y);
 	normal = normalize(cross(dXdp[0], dXdp[1]));
