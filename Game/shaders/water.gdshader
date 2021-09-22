@@ -81,19 +81,69 @@ void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
 	pos -= ofs;
 }
 
-void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
+//void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
+//{
+//	float eps = 0.01;
+//	vec2 e = vec2(eps, 0.0);
+//
+//	float h = waves_sum(pos, t);
+//	dhdt = dt > 0.0 ? (waves_sum(pos, t + dt) - h) / dt : 0.0;
+//	dhdp = vec2(waves_sum(pos + e.xy, t) - waves_sum(pos - e.xy, t), waves_sum(pos + e.yx, t) - waves_sum(pos - e.yx, t)) / (2.0*eps);
+//
+////	trochoidal_wave(pos, h, dh);
+////	dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
+//
+//	vertex = vec3(pos.x, h, pos.y);
+//}
+
+float rect(float x)
 {
-	float eps = 0.01;
-	vec2 e = vec2(eps, 0.0);
+	return x < 0.5 ? 1.0 : (x == 0.5 ? 0.5 : 0.0);
+}
+
+void wave_kernel(vec3 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
+{
+	float a = 1.0;
+	float r = 4.0;
+	vec3 dir = vec3(normalize(direction), 0);
+	float lambda = wave_length;
+	vec3 p0 = vec3(0, 0, 0);
+
+	vec3 dist = p - p0;
+
+	float l = length(dist) / r;
+	vec3 dldp = dist / (length(dist) * r);
+	float D = a * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
+	vec3 dDdp = -a * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
 	
-	float h = waves_sum(pos, t);
-	dhdt = dt > 0.0 ? (waves_sum(pos, t + dt) - h) / dt : 0.0;
-	dhdp = vec2(waves_sum(pos + e.xy, t) - waves_sum(pos - e.xy, t), waves_sum(pos + e.yx, t) - waves_sum(pos - e.yx, t)) / (2.0*eps);
+	float u = dot(dist, dir);
+//	vec3 dudp = dir;
+	float w = 2.0 * PI * u / lambda;
+//	vec3 dwdp = 2.0 * PI * dudp / lambda = 2.0 * PI * dir / lambda;
+	vec3 L = -sin(w) * rect(u / lambda) * dir;
+	mat3 dLdp = -2.0 * PI * cos(w) / lambda * outerProduct(dir, dir);
 	
-//	trochoidal_wave(pos, h, dh);
-//	dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
-	
-	vertex = vec3(pos.x, h, pos.y);
+	X = p + (L + vec3(0, 0, 1)) * D;
+	dXdp = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 0)) + dLdp * D + outerProduct(L + vec3(0, 0, 1), dDdp);
+}
+
+void waves_distribute()
+{
+	for (int i = 0; i < 10; ++i)
+	{
+		
+	}
+}
+
+void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal)
+{
+	vec3 X;
+	mat3 dXdp;
+	vec3 dXdt;
+	wave_kernel(vec3(uv.x, -uv.y, 0), t, dt, X, dXdt, dXdp);
+	position = vec3(X.x, X.z, -X.y);
+	velocity = vec3(dXdt.x, dXdt.z, -dXdt.y);
+	normal = normalize(cross(dXdp[0], dXdp[1]));
 }
 
 // END_IMPORT
@@ -131,9 +181,9 @@ uniform float beach_alpha_fadeout = 0.05;
 
 void vertex()
 {
-	float dhdt;
-	vec2 dhdp;
-	waves(VERTEX.xz, VERTEX, dhdt, dhdp, time, 0.0);
+	vec3 velocity;
+	vec3 normal;
+	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, normal);
 	
 //	float camera_distance = length(CAMERA_MATRIX[3].xyz - (WORLD_MATRIX[3].xyz - VERTEX)) / 1000.0;
 //	COLOR[0] = camera_distance;
@@ -143,11 +193,11 @@ void fragment()
 {
 	vec2 wave_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xz;
 	vec3 wave_vertex;
-	float wave_dhdt;
-	vec2 wave_dhdp;
-	waves(wave_pos, wave_vertex, wave_dhdt, wave_dhdp, time, 0.0);
+	vec3 wave_velocity;
+	vec3 wave_normal;
+	waves(wave_pos, time, 0.0, wave_vertex, wave_velocity, wave_normal);
 	
-	vec3 normal_output = normalize(vec3(-wave_dhdp.x, wave_dhdp.y, 1.0)) * 0.5 + 0.5;
+	vec3 normal_output = wave_normal * 0.5 + 0.5;
 
 	// UNDERWATER
 	float depth = texture(DEPTH_TEXTURE, SCREEN_UV).r; // LOOSING SS-REFLECTIONS

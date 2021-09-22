@@ -77,17 +77,24 @@ void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
 	pos -= ofs;
 }
 
+//void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
+//{
+//	float eps = 0.01;
+//	vec2 e = vec2(eps, 0.0);
+//
+//	float h = waves_sum(pos, t);
+//	dhdt = dt > 0.0 ? (waves_sum(pos, t + dt) - h) / dt : 0.0;
+//	dhdp = vec2(waves_sum(pos + e.xy, t) - waves_sum(pos - e.xy, t), waves_sum(pos + e.yx, t) - waves_sum(pos - e.yx, t)) / (2.0*eps);
+//
+////	trochoidal_wave(pos, h, dh);
+////	dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
+//
+//	vertex = vec3(pos.x, h, pos.y);
+//}
+
 void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
 {
-	float eps = 0.01;
-	vec2 e = vec2(eps, 0.0);
-	
-	float h = waves_sum(pos, t);
-	dhdt = dt > 0.0 ? (waves_sum(pos, t + dt) - h) / dt : 0.0;
-	dhdp = vec2(waves_sum(pos + e.xy, t) - waves_sum(pos - e.xy, t), waves_sum(pos + e.yx, t) - waves_sum(pos - e.yx, t)) / (2.0*eps);
-	
-//	trochoidal_wave(pos, h, dh);
-//	dh = vec2(waves_sum(pos + e.xy) - waves_sum(pos - e.xy), waves_sum(pos + e.yx) - waves_sum(pos - e.yx)) / (2.0*eps);
-	
+	dhdt = 0.0;
+	dhdp = vec2(0, 0);
 	vertex = vec3(pos.x, h, pos.y);
 }
