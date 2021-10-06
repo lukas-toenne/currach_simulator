@@ -83,13 +83,21 @@ uniform float noise_amplitude = 1.0;
 
 void vertex() {
 	UV=UV*uv1_scale.xy+uv1_offset.xy;
-	VERTEX.y = fbm(vec3((VERTEX.xz - noise_origin) / noise_scale, 0)) * noise_amplitude;
+	vec3 c = vec3((VERTEX.xz - noise_origin) / noise_scale, 0);
+	VERTEX.y = fbm(c) * noise_amplitude;
+	float eps = 0.01;
+	float px = fbm(c + vec3(eps, 0, 0)) * noise_amplitude;
+	float mx = fbm(c + vec3(-eps, 0, 0)) * noise_amplitude;
+	float pz = fbm(c + vec3(0, 0, eps)) * noise_amplitude;
+	float mz = fbm(c + vec3(0, 0, -eps)) * noise_amplitude;
+	vec3 dH = vec3(px - mx, 0.0, pz - mz);
+	NORMAL = normalize(vec3(-dH.x, 2.0*eps, -dH.z));
 }
 
 void fragment() {
 	vec2 base_uv = UV;
 	vec4 albedo_tex = texture(texture_albedo,base_uv);
-	NORMAL = vec3(dFdx(VERTEX.x), dFdy(VERTEX.y), 0);
+//	NORMAL = vec3(dFdx(VERTEX.x), dFdy(VERTEX.y), 0);
 	ALBEDO = albedo.rgb * albedo_tex.rgb;
 	METALLIC = metallic;
 	ROUGHNESS = roughness;

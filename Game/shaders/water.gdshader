@@ -1,6 +1,5 @@
 shader_type spatial;
-render_mode diffuse_lambert;
-render_mode specular_schlick_ggx;
+render_mode diffuse_lambert, specular_schlick_ggx, depth_draw_always;
 
 // BEGIN_IMPORT res://shaders/waves.gdshader
 
@@ -49,16 +48,18 @@ float fbm(vec3 x) {
 
 const float PI = 3.14159265359;
 
-uniform float wave_length = 10.0;
+uniform float wave_length = 1.0;
 uniform float phase_speed = 1.0;
+uniform float kernel_radius = 3.0;
+
 uniform float phase = 0.0;
 uniform float amplitude_linear = 1.0;
 uniform float amplitude_random = 1.0;
-uniform vec2 direction = vec2(4.0, -1.0);
+uniform vec2 linear_direction = vec2(4.0, -1.0);
 
 float waves_linear(vec2 pos, float t)
 {
-	vec2 k = 2.0 * PI / wave_length * normalize(direction);
+	vec2 k = 2.0 * PI / wave_length * normalize(linear_direction);
 	return sin(dot(k, pos) - phase_speed * t + phase);
 }
 
@@ -98,53 +99,102 @@ void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
 
 float rect(float x)
 {
-	return x < 0.5 ? 1.0 : (x == 0.5 ? 0.5 : 0.0);
+	float ax = abs(x);
+	return ax < 0.5 ? 1.0 : (ax == 0.5 ? 0.5 : 0.0);
 }
 
-void wave_kernel(float amplitude, vec3 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
+void wave_kernel(float A, vec2 center, vec2 direction, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
 {
-	float lambda = wave_length;
-	// Clamp amplitude to avoid overlap at the crest.
-	amplitude = min(amplitude, 0.5 * lambda / PI);
-	float r = 3.0;
-	vec3 dir = vec3(normalize(direction), 0);
-	vec3 p0 = vec3(0, 0, 0);
+	float r = kernel_radius;
+	vec3 X0 = vec3(center, 0);
+	vec3 dist = X - X0;
 
-	vec3 dist = p - p0;
-
+	// Envelope
 	float l = length(dist) / r;
 	vec3 dldp = dist / (length(dist) * r);
-	float D = amplitude * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
-	vec3 dDdp = -amplitude * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
+	float D = A * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
+	vec3 dDdp = -A * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
 	
+	float lambda = wave_length;
+	vec3 dir = vec3(direction, 0);
+
 	float u = dot(dist, dir);
-//	vec3 dudp = dir;
+	vec3 dudp = dir;
 	float w = 2.0 * PI * u / lambda;
-//	vec3 dwdp = 2.0 * PI * dudp / lambda = 2.0 * PI * dir / lambda;
-	vec3 L = -sin(w) * rect(u / lambda) * dir;
-	mat3 dLdp = -2.0 * PI * cos(w) / lambda * outerProduct(dir, dir);
+	vec3 dwdp = 2.0 * PI * dudp / lambda;
+	vec3 L = -sin(w) * dir;
+	mat3 dLdp = -cos(w) * outerProduct(dwdp, dir) - sin(w) * outerProduct(dir, dir);
+	float H = cos(w);
+	vec3 dHdp = -2.0 * PI * sin(w) / lambda * dir;
 	
-	X = p + (L + vec3(0, 0, 1)) * D;
-	dXdp = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 0)) + dLdp * D + outerProduct(L + vec3(0, 0, 1), dDdp);
+	X += (L + vec3(0, 0, H)) * D;
+	dXdp = dXdp + (dLdp + transpose(mat3(vec3(0), vec3(0), -dHdp))) * D + outerProduct(L + vec3(0, 0, H), dDdp);
 }
 
-void waves_distribute()
+bool wave_sample(float A, vec2 start, vec2 travel, float t, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
 {
-	for (int i = 0; i < 10; ++i)
+	if (t >= 1.0)
 	{
-		
+		return false;
+	}
+	vec2 center = start + t * travel;
+	vec2 direction = normalize(travel);
+	// Clamp amplitude to avoid overlap at the crest.
+	A = min(A, 0.5 * wave_length / PI);
+	// Time envelope
+	A *= 0.5 * (1.0 - cos(2.0 * PI * t));
+	wave_kernel(A, center, direction, dt, X, dXdt, dXdp);
+	return true;
+}
+
+void waves_distribute(float A, float t, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
+{
+	float travel_time = 3.0;
+	float travel_dist = travel_time * phase_speed;
+	float cell_size = kernel_radius / sqrt(2.0);
+
+	for (int j = -3; j <= 3; ++j)
+	{
+		for (int i = -3; i <= 3; ++i)
+		{
+			for (int k = 0; k < 3; ++k)
+			{
+				vec3 u = hash(vec3(float(i), float(j), float(k)));
+				vec3 v = hash(vec3(float(j), float(k), float(i)));
+
+				vec2 cell = vec2(float(i), float(j));
+				vec2 start = (cell + u.xy) * cell_size;
+				vec2 travel = v.xy * travel_dist;
+				// XXX Precision could suffer for large t, problem?
+				// Should keep a rolling value in 0..1 range incremenenting by dt,
+				// but has to happen outside of the shader.
+				float alpha = fract(t / travel_time + u.z);
+				float dalpha = dt / travel_time;
+				wave_sample(A, start, travel, alpha, dalpha, X, dXdt, dXdp);
+			}
+		}
 	}
 }
 
 void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal)
 {
-	vec3 X;
-	mat3 dXdp;
-	vec3 dXdt;
-	wave_kernel(2.5, vec3(uv.x, -uv.y, 0), t, dt, X, dXdt, dXdp);
+	// Yup -> Zup
+	vec3 X = vec3(uv.x, -uv.y, 0);
+	mat3 dXdp = mat3(vec3(1, 0, 0), vec3(0, -1, 0), vec3(0, 0, 0));
+	vec3 dXdt = vec3(0, 0, 0);
+
+//	wave_kernel(0.63, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp);
+//	wave_sample(0.63, vec2(0, 0), vec2(8, -5), t, dt, X, dXdt, dXdp);
+	waves_distribute(0.05, t, dt, X, dXdt, dXdp);
+
+	// Zup -> Yup
 	position = vec3(X.x, X.z, -X.y);
 	velocity = vec3(dXdt.x, dXdt.z, -dXdt.y);
-	normal = normalize(cross(dXdp[0], dXdp[1]));
+//	vec3 znor = normalize(cross(dXdp[0], dXdp[1]));
+//	vec3 znor = normalize(cross(vec3(dXdp[0][0], dXdp[1][0], dXdp[2][0]), vec3(dXdp[0][1], dXdp[1][1], dXdp[2][1])));
+	vec3 znor = normalize(inverse(transpose(dXdp)) * vec3(1, 0, 0));
+	normal = vec3(znor.x, znor.z, -znor.y);
+//	normal = -normalize(znor);
 }
 
 // END_IMPORT
@@ -183,11 +233,11 @@ uniform float beach_alpha_fadeout = 0.05;
 void vertex()
 {
 	vec3 velocity;
-	vec3 normal;
-	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, normal);
+	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, NORMAL);
 	
 //	float camera_distance = length(CAMERA_MATRIX[3].xyz - (WORLD_MATRIX[3].xyz - VERTEX)) / 1000.0;
 //	COLOR[0] = camera_distance;
+	COLOR = vec4(NORMAL, 1);
 }
 
 void fragment()
@@ -197,8 +247,10 @@ void fragment()
 	vec3 wave_velocity;
 	vec3 wave_normal;
 	waves(wave_pos, time, 0.0, wave_vertex, wave_velocity, wave_normal);
-	
 	vec3 normal_output = wave_normal * 0.5 + 0.5;
+
+//	vec3 normal_output = 0.5 * (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz + 0.5;
+//	normal_output = vec3(0, 0, 0.5);
 
 	// UNDERWATER
 	float depth = texture(DEPTH_TEXTURE, SCREEN_UV).r; // LOOSING SS-REFLECTIONS
@@ -220,6 +272,9 @@ void fragment()
 //	vec3 water_gradient = texture(water_color, vec2(depth * water_color_depth, 0.5)).xyz;
 	vec3 water_gradient = mix(water_color.rgb, water_color.rgb * 0.3, clamp(depth / water_color_depth, 0, 1));
 	vec3 albedo_output = water_gradient;
+	albedo_output = water_color.rgb;
+	albedo_output = normal_output;
+//	albedo_output = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz * 0.5 + 0.5;
 
 //	albedo_output = mix(albedo_output, albedo_output + albedo_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
 //	normal_output = mix(normal_output, normal_output + normal_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
@@ -229,11 +284,14 @@ void fragment()
 	float alpha_output = smoothstep(depth, 0.00, beach_alpha_fadeout);
 	
 	ALBEDO = clamp(albedo_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-	SPECULAR = 0.6;
-	ROUGHNESS = 0.08;
+//	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+//	NORMALMAP = vec3(0.0, 0.0, 1.0);
+//	SPECULAR = 0.6;
+	SPECULAR = 0.0;
+//	ROUGHNESS = 0.08;
+	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	ALPHA = alpha_output;
+//	ALPHA = alpha_output;
 }
 
 void light()
@@ -253,8 +311,8 @@ void light()
 	float spec_glare = clamp( pow( dot( reflect(LIGHT, NORMAL), -VIEW), 100.0), 0.0, 1.0) * smoothstep(0.0, 0.1, water_highlight_mask_1 * water_highlight_mask_2) * 30.0;
 	
 	DIFFUSE_LIGHT += (LIGHT_COLOR * ALBEDO * ATTENUATION / pi) * lambert;
-	DIFFUSE_LIGHT += (LIGHT_COLOR * ALBEDO * ATTENUATION / pi) * sss;
-	DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * (spec + spec_glare);
+//	DIFFUSE_LIGHT += (LIGHT_COLOR * ALBEDO * ATTENUATION / pi) * sss;
+//	DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * (spec + spec_glare);
 }
 
 

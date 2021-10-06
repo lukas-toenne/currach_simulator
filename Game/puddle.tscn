@@ -9,20 +9,21 @@
 
 [sub_resource type="PlaneMesh" id=1]
 size = Vector2( 40, 40 )
-subdivide_width = 80
-subdivide_depth = 80
+subdivide_width = 320
+subdivide_depth = 320
 
 [sub_resource type="ShaderMaterial" id=2]
 render_priority = 20
 shader = ExtResource( 4 )
-shader_param/wave_length = 4.0
+shader_param/wave_length = 1.0
 shader_param/phase_speed = 1.0
+shader_param/kernel_radius = 3.0
 shader_param/phase = 0.0
 shader_param/amplitude_linear = 1.0
 shader_param/amplitude_random = 1.0
-shader_param/direction = Vector2( 4, -1 )
+shader_param/linear_direction = Vector2( 4, -1 )
 shader_param/time = 0.0
-shader_param/water_color = Color( 0, 0, 1, 1 )
+shader_param/water_color = Color( 0.564706, 0.564706, 0.839216, 1 )
 shader_param/water_color_depth = 1.0
 shader_param/sss_strength = 7.0
 shader_param/beach_alpha_fadeout = 0.05
@@ -201,3 +202,6 @@ transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.10578, 0 )
 mesh = SubResource( 6 )
 material/0 = SubResource( 7 )
 script = ExtResource( 7 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 0.0893424, 0.994108, -0.0613778, 0.995384, -0.0869483, 0.0406334, 0.0350573, -0.0647247, -0.997287, 0, 8.53521, 0 )
