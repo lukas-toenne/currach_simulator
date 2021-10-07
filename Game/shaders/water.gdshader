@@ -180,7 +180,7 @@ void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out
 {
 	// Yup -> Zup
 	vec3 X = vec3(uv.x, -uv.y, 0);
-	mat3 dXdp = mat3(vec3(1, 0, 0), vec3(0, -1, 0), vec3(0, 0, 0));
+	mat3 dXdp = mat3(vec3(1, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
 	vec3 dXdt = vec3(0, 0, 0);
 
 //	wave_kernel(0.63, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp);
@@ -192,7 +192,7 @@ void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out
 	velocity = vec3(dXdt.x, dXdt.z, -dXdt.y);
 //	vec3 znor = normalize(cross(dXdp[0], dXdp[1]));
 //	vec3 znor = normalize(cross(vec3(dXdp[0][0], dXdp[1][0], dXdp[2][0]), vec3(dXdp[0][1], dXdp[1][1], dXdp[2][1])));
-	vec3 znor = normalize(inverse(transpose(dXdp)) * vec3(1, 0, 0));
+	vec3 znor = normalize(transpose(inverse(dXdp)) * vec3(0, 0, -1));
 	normal = vec3(znor.x, znor.z, -znor.y);
 //	normal = -normalize(znor);
 }
@@ -273,7 +273,7 @@ void fragment()
 	vec3 water_gradient = mix(water_color.rgb, water_color.rgb * 0.3, clamp(depth / water_color_depth, 0, 1));
 	vec3 albedo_output = water_gradient;
 	albedo_output = water_color.rgb;
-	albedo_output = normal_output;
+//	albedo_output = normal_output;
 //	albedo_output = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz * 0.5 + 0.5;
 
 //	albedo_output = mix(albedo_output, albedo_output + albedo_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
@@ -284,7 +284,7 @@ void fragment()
 	float alpha_output = smoothstep(depth, 0.00, beach_alpha_fadeout);
 	
 	ALBEDO = clamp(albedo_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-//	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
 //	NORMALMAP = vec3(0.0, 0.0, 1.0);
 //	SPECULAR = 0.6;
 	SPECULAR = 0.0;
