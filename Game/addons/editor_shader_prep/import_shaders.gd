@@ -1,11 +1,11 @@
-tool
+@tool
 extends EditorScript
 
 var shader_path = "res://shaders"
 
-func _get_shader_lines(import_path: String) -> PoolStringArray:
+func _get_shader_lines(import_path: String) -> PackedStringArray:
 	print("Importing shader " + import_path)
-	var result = PoolStringArray([])
+	var result = PackedStringArray([])
 	var file = File.new()
 
 	file.open(import_path, File.READ)
@@ -19,7 +19,7 @@ func _get_shader_lines(import_path: String) -> PoolStringArray:
 	return result
 
 func _import_shaders(path: String):
-	var result = PoolStringArray([])
+	var result = PackedStringArray([])
 	var modified = false
 	var file = File.new()
 

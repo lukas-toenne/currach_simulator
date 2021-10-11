@@ -46,8 +46,6 @@ float fbm(vec3 x) {
 }
 
 
-const float PI = 3.14159265359;
-
 uniform float wave_length = 1.0;
 uniform float phase_speed = 1.0;
 uniform float kernel_radius = 3.0;
@@ -284,8 +282,8 @@ void fragment()
 	float alpha_output = smoothstep(depth, 0.00, beach_alpha_fadeout);
 	
 	ALBEDO = clamp(albedo_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-//	NORMALMAP = vec3(0.0, 0.0, 1.0);
+	NORMAL_MAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+//	NORMAL_MAP = vec3(0.0, 0.0, 1.0);
 //	SPECULAR = 0.6;
 	SPECULAR = 0.0;
 //	ROUGHNESS = 0.08;

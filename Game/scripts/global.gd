@@ -1,6 +1,6 @@
 extends Node
 
-onready var menu = get_node("/root/Menu")
+@onready var menu = get_node("/root/Menu")
 
 var level = null
 

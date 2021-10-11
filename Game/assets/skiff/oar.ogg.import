@@ -1,13 +1,14 @@
 [remap]
 
-importer="ogg_vorbis"
+importer="oggvorbisstr"
 type="AudioStreamOGGVorbis"
-path="res://.import/oar.ogg-702991e3499a5da25dac24d66643523f.oggstr"
+uid="uid://qtvjv7gjra1o"
+path="res://.godot/imported/oar.ogg-702991e3499a5da25dac24d66643523f.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/skiff/oar.ogg"
-dest_files=[ "res://.import/oar.ogg-702991e3499a5da25dac24d66643523f.oggstr" ]
+dest_files=["res://.godot/imported/oar.ogg-702991e3499a5da25dac24d66643523f.oggvorbisstr"]
 
 [params]
 

@@ -1,4 +1,4 @@
-tool
+@tool
 extends EditorScenePostImport
 
 func post_import(scene):
@@ -10,7 +10,7 @@ func anim_filter(node: AnimationPlayer, name: String, allowed_tracks):
 	# Reverse loop to avoid shifting indices of unhandled tracks
 	for i in range(anim.get_track_count()-1, -1, -1):
 		if not (anim.track_get_path(i).get_subname(0) in allowed_tracks):
-			print("Removing track '" + anim.track_get_path(i) + "' from animation '" + name + "'")
+			print("Removing track '" + str(anim.track_get_path(i)) + "' from animation '" + name + "'")
 			anim.remove_track(i)
 	print("'" + name + "' track count " + str(node.get_animation(name).get_track_count()))
 
@@ -30,7 +30,7 @@ func iterate(node: Node):
 		if node.name == "SkiffCover":
 			var holdout_mat = ShaderMaterial.new()
 			holdout_mat.shader = load("res://shaders/holdout.gdshader")
-			var mesh: MeshInstance = node
+			var mesh: MeshInstance3D = node
 			mesh.mesh.surface_set_material(0, holdout_mat)
 
 		for child in node.get_children():

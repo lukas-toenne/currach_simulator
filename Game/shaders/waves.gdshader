@@ -43,8 +43,6 @@ float fbm(vec3 x) {
 }
 
 
-const float PI = 3.14159265359;
-
 uniform float wave_length = 10.0;
 uniform float phase_speed = 1.0;
 uniform float phase = 0.0;
@@ -96,5 +94,5 @@ void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, fl
 {
 	dhdt = 0.0;
 	dhdp = vec2(0, 0);
-	vertex = vec3(pos.x, h, pos.y);
+//	vertex = vec3(pos.x, h, pos.y);
 }

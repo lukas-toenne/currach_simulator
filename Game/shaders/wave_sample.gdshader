@@ -46,8 +46,6 @@ float fbm(vec3 x) {
 }
 
 
-const float PI = 3.14159265359;
-
 uniform float wave_length = 10.0;
 uniform float phase_speed = 1.0;
 uniform float phase = 0.0;

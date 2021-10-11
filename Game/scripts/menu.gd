@@ -1,6 +1,6 @@
 extends Control
 
-onready var global = get_node("/root/Global")
+@onready var global = get_node("/root/Global")
 
 func _process(_delta):
 	pass

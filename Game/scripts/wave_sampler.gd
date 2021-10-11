@@ -5,14 +5,14 @@ class_name WaveSampler
 # Wave sampler has early priority so wave samples are available during _process.
 const WAVE_SAMPLER_PROCESS_PRIORITY = -1000
 
-export(Shader) var shader = preload("res://shaders/wave_sample.gdshader")
+@export var shader : Shader = preload("res://shaders/wave_sample.gdshader")
 
 var time = 0.0
 
 var viewport: Viewport
 var rect: ColorRect
 
-var points: PoolVector2Array
+var points: PackedVector2Array
 var points_updated: bool = false
 
 const pos_format = Image.FORMAT_RGF
@@ -121,7 +121,7 @@ func _update_positions():
 	
 	var resize_viewport = false
 	if realloc_pos:
-		pos_tex.create_from_image(pos_image, 0)
+		pos_tex.create_from_image(pos_image)
 		resize_viewport = true
 	else:
 		pos_tex.set_data(pos_image)
@@ -134,8 +134,8 @@ func _update_positions():
 		rect.rect_size = output_size
 
 func _ready():
-	VisualServer.connect("frame_pre_draw", self, "_on_VisualServer_pre_draw")
-	VisualServer.connect("frame_post_draw", self, "_on_VisualServer_post_draw")
+	RenderingServer.frame_pre_draw.connect(_on_VisualServer_pre_draw)
+	RenderingServer.frame_post_draw.connect(_on_VisualServer_post_draw)
 
 func _on_VisualServer_pre_draw():
 	if points_updated:

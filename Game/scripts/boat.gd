@@ -1,12 +1,12 @@
-extends RigidBody
+extends RigidDynamicBody3D
 
 class_name Boat
 
-export(float) var buoyancy_offset = 0.0
-export(float) var buoyancy_force = 40.0
-export(Vector3) var buoyancy_torque = Vector3(5.0, 0.5, 2.0)
-export(Vector3) var buoyancy_linear_damp = Vector3(1.5, 5.0, 0.3)
-export(float) var buoyancy_angular_damp = 1.0
+@export var buoyancy_offset : float = 0.0
+@export var buoyancy_force : float = 40.0
+@export var buoyancy_torque : Vector3 = Vector3(5.0, 0.5, 2.0)
+@export var buoyancy_linear_damp : Vector3 = Vector3(1.5, 5.0, 0.3)
+@export var buoyancy_angular_damp : float = 1.0
 
 var wave_sampler
 
@@ -62,11 +62,12 @@ func _ready():
 	_buoyGram = M.inverse()
 
 func _draw_vector(pos: Vector3, vec: Vector3, color: Color):
-	DebugDraw.draw_line_3d(pos, pos + vec, color)
-	DebugDraw.draw_line_3d(pos, pos + Vector3(vec.x, 0, vec.z), color)
-	DebugDraw.draw_line_3d(pos + Vector3(vec.x, 0, vec.z), pos + vec, color)
+#	DebugDraw.draw_line_3d(pos, pos + vec, color)
+#	DebugDraw.draw_line_3d(pos, pos + Vector3(vec.x, 0, vec.z), color)
+#	DebugDraw.draw_line_3d(pos + Vector3(vec.x, 0, vec.z), pos + vec, color)
+	pass
 
-func _draw_normals(state: PhysicsDirectBodyState, depth: float, hnor: Vector3, torque: Vector3):
+func _draw_normals(state: PhysicsDirectBodyState3D, depth: float, hnor: Vector3, torque: Vector3):
 	return
 	var scale = 3.0
 	var pos = state.transform.origin
@@ -76,13 +77,13 @@ func _draw_normals(state: PhysicsDirectBodyState, depth: float, hnor: Vector3, t
 	_draw_vector(pos, state.transform.basis.y.cross(hnor) * scale, Color(1, 0, 0))
 #	_draw_vector(pos, torque * 10.0, Color(1, 0, 0))
 
-func _draw_forces(state: PhysicsDirectBodyState, force: Vector3, drag: Vector3, torque: Vector3):
+func _draw_forces(state: PhysicsDirectBodyState3D, force: Vector3, drag: Vector3, torque: Vector3):
 	return
 	var offset = Vector3(0, 2, 0)
 	var center = state.transform.origin + offset
-	DebugDraw.draw_line_3d(center, center + force, Color(0.2, 0.9, 0))
-	DebugDraw.draw_line_3d(center, center + drag, Color(0.1, 0.7, 0.9))
-	DebugDraw.draw_line_3d(center, center + torque, Color(0.9, 0.4, 0))
+#	DebugDraw.draw_line_3d(center, center + force, Color(0.2, 0.9, 0))
+#	DebugDraw.draw_line_3d(center, center + drag, Color(0.1, 0.7, 0.9))
+#	DebugDraw.draw_line_3d(center, center + torque, Color(0.9, 0.4, 0))
 
 
 func _integrate_forces(state):
@@ -116,7 +117,7 @@ func _integrate_forces(state):
 
 	var depth = h0
 	if depth > 0.0:
-		var rotation = Quat(state.transform.basis)
+		var rotation = Quaternion(state.transform.basis)
 
 		var force = hnor * depth * buoyancy_force
 		

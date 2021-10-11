@@ -1,4 +1,4 @@
-extends MeshInstance
+extends MeshInstance3D
 
 #func draw_line3d(node, camera: Camera, from: Vector3, to: Vector3, color: Color):
 #	var from_screen = camera.unproject_position(from)
