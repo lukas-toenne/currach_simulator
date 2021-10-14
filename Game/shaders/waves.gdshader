@@ -96,5 +96,5 @@ void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, fl
 {
 	dhdt = 0.0;
 	dhdp = vec2(0, 0);
-	vertex = vec3(pos.x, h, pos.y);
+	vertex = vec3(pos.x, 0.0, pos.y);
 }

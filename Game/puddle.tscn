@@ -15,14 +15,13 @@ subdivide_depth = 320
 [sub_resource type="ShaderMaterial" id=2]
 render_priority = 20
 shader = ExtResource( 4 )
-shader_param/wave_length = 1.0
+shader_param/wave_length = 3.0
 shader_param/phase_speed = 1.0
 shader_param/kernel_radius = 3.0
 shader_param/phase = 0.0
-shader_param/amplitude_linear = 1.0
-shader_param/amplitude_random = 1.0
+shader_param/amplitude = 0.148
 shader_param/linear_direction = Vector2( 4, -1 )
-shader_param/time = 0.0
+shader_param/time = 0.392
 shader_param/water_color = Color( 0.564706, 0.564706, 0.839216, 1 )
 shader_param/water_color_depth = 1.0
 shader_param/sss_strength = 7.0
@@ -204,4 +203,4 @@ material/0 = SubResource( 7 )
 script = ExtResource( 7 )
 
 [node name="DirectionalLight" type="DirectionalLight" parent="."]
-transform = Transform( 0.0893424, 0.994108, -0.0613778, 0.995384, -0.0869483, 0.0406334, 0.0350573, -0.0647247, -0.997287, 0, 8.53521, 0 )
+transform = Transform( 0.0893424, 0.994108, -0.0613777, -0.814359, 0.10839, 0.57015, 0.573443, -0.000955058, 0.819245, 0, 8.53521, 0 )

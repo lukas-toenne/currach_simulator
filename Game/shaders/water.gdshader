@@ -1,5 +1,6 @@
 shader_type spatial;
 render_mode diffuse_lambert, specular_schlick_ggx, depth_draw_always;
+//render_mode unshaded, depth_draw_always;
 
 // BEGIN_IMPORT res://shaders/waves.gdshader
 
@@ -53,34 +54,33 @@ uniform float phase_speed = 1.0;
 uniform float kernel_radius = 3.0;
 
 uniform float phase = 0.0;
-uniform float amplitude_linear = 1.0;
-uniform float amplitude_random = 1.0;
+uniform float amplitude = 1.0;
 uniform vec2 linear_direction = vec2(4.0, -1.0);
-
-float waves_linear(vec2 pos, float t)
-{
-	vec2 k = 2.0 * PI / wave_length * normalize(linear_direction);
-	return sin(dot(k, pos) - phase_speed * t + phase);
-}
-
-float waves_random(vec2 pos, float t)
-{
-	float k = 2.0 * PI / wave_length;
-	return fbm(vec3(k * pos, phase_speed * t + phase));
-}
-
-float waves_sum(vec2 pos, float t)
-{
-	return amplitude_linear * waves_linear(pos, t) + amplitude_random * waves_random(pos, t);
-}
-
-void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
-{
-	float totamp = amplitude_linear + amplitude_random;
-	float nval = val / totamp;
-	vec2 ofs = dval * sqrt(1.0 - nval*nval);
-	pos -= ofs;
-}
+//
+//float waves_linear(vec2 pos, float t)
+//{
+//	vec2 k = 2.0 * PI / wave_length * normalize(linear_direction);
+//	return sin(dot(k, pos) - phase_speed * t + phase);
+//}
+//
+//float waves_random(vec2 pos, float t)
+//{
+//	float k = 2.0 * PI / wave_length;
+//	return fbm(vec3(k * pos, phase_speed * t + phase));
+//}
+//
+//float waves_sum(vec2 pos, float t)
+//{
+//	return amplitude_linear * waves_linear(pos, t) + amplitude_random * waves_random(pos, t);
+//}
+//
+//void trochoidal_wave(inout vec2 pos, float val, vec2 dval)
+//{
+//	float totamp = amplitude_linear + amplitude_random;
+//	float nval = val / totamp;
+//	vec2 ofs = dval * sqrt(1.0 - nval*nval);
+//	pos -= ofs;
+//}
 
 //void waves(vec2 pos, out vec3 vertex, out float dhdt, out vec2 dhdp, float t, float dt)
 //{
@@ -103,11 +103,10 @@ float rect(float x)
 	return ax < 0.5 ? 1.0 : (ax == 0.5 ? 0.5 : 0.0);
 }
 
-void wave_kernel(float A, vec2 center, vec2 direction, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
+void wave_kernel(vec2 p, float A, vec2 center, vec2 direction, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
 {
 	float r = kernel_radius;
-	vec3 X0 = vec3(center, 0);
-	vec3 dist = X - X0;
+	vec3 dist = vec3(p.x - center.x, 0, p.y - center.y);
 
 	// Envelope
 	float l = length(dist) / r;
@@ -116,22 +115,23 @@ void wave_kernel(float A, vec2 center, vec2 direction, float dt, inout vec3 X, i
 	vec3 dDdp = -A * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
 	
 	float lambda = wave_length;
-	vec3 dir = vec3(direction, 0);
+	vec3 dir = vec3(direction.x, 0, direction.y);
 
 	float u = dot(dist, dir);
 	vec3 dudp = dir;
 	float w = 2.0 * PI * u / lambda;
 	vec3 dwdp = 2.0 * PI * dudp / lambda;
+
 	vec3 L = -sin(w) * dir;
-	mat3 dLdp = -cos(w) * outerProduct(dwdp, dir) - sin(w) * outerProduct(dir, dir);
-	float H = cos(w);
-	vec3 dHdp = -2.0 * PI * sin(w) / lambda * dir;
+	mat3 dLdp = -cos(w) * outerProduct(dir, dwdp);
+	vec3 H = vec3(0, cos(w), 0);
+	mat3 dHdp = transpose(mat3(vec3(0, 0, 0), -sin(w) * dwdp, vec3(0, 0, 0)));
 	
-	X += (L + vec3(0, 0, H)) * D;
-	dXdp = dXdp + (dLdp + transpose(mat3(vec3(0), vec3(0), -dHdp))) * D + outerProduct(L + vec3(0, 0, H), dDdp);
+	X = (L + H) * D;
+	dXdp = (dLdp + dHdp) * D + outerProduct(L + H, dDdp);
 }
 
-bool wave_sample(float A, vec2 start, vec2 travel, float t, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
+bool wave_sample(vec2 p, float A, vec2 start, vec2 travel, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp)
 {
 	if (t >= 1.0)
 	{
@@ -143,11 +143,11 @@ bool wave_sample(float A, vec2 start, vec2 travel, float t, float dt, inout vec3
 	A = min(A, 0.5 * wave_length / PI);
 	// Time envelope
 	A *= 0.5 * (1.0 - cos(2.0 * PI * t));
-	wave_kernel(A, center, direction, dt, X, dXdt, dXdp);
+	wave_kernel(p, A, center, direction, dt, X, dXdt, dXdp);
 	return true;
 }
 
-void waves_distribute(float A, float t, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
+void waves_distribute(vec2 p, float A, float t, float dt, inout vec3 X, inout vec3 dXdt, inout mat3 dXdp)
 {
 	float travel_time = 3.0;
 	float travel_dist = travel_time * phase_speed;
@@ -163,38 +163,52 @@ void waves_distribute(float A, float t, float dt, inout vec3 X, inout vec3 dXdt,
 				vec3 v = hash(vec3(float(j), float(k), float(i)));
 
 				vec2 cell = vec2(float(i), float(j));
-				vec2 start = (cell + u.xy) * cell_size;
-				vec2 travel = v.xy * travel_dist;
+				vec2 start = (cell + u.xz) * cell_size;
+				vec2 travel = v.xz * travel_dist;
 				// XXX Precision could suffer for large t, problem?
 				// Should keep a rolling value in 0..1 range incremenenting by dt,
 				// but has to happen outside of the shader.
-				float alpha = fract(t / travel_time + u.z);
+				float alpha = fract(t / travel_time + u.y);
 				float dalpha = dt / travel_time;
-				wave_sample(A, start, travel, alpha, dalpha, X, dXdt, dXdp);
+				
+				vec3 sample_X;
+				mat3 sample_dXdp;
+				vec3 sample_dXdt;
+				wave_sample(p, A, start, travel, alpha, dalpha, sample_X, sample_dXdt, sample_dXdp);
+				X += sample_X;
+				dXdp = dXdp + sample_dXdp;
+				dXdt += sample_dXdt;
 			}
 		}
 	}
 }
 
-void waves(vec2 uv, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal)
+void waves(vec2 p, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal, out vec3 debug)
 {
-	// Yup -> Zup
-	vec3 X = vec3(uv.x, -uv.y, 0);
-	mat3 dXdp = mat3(vec3(1, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
+	vec3 X = vec3(p.x, 0, p.y);
+	mat3 dXdp = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1));
 	vec3 dXdt = vec3(0, 0, 0);
 
 //	wave_kernel(0.63, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp);
-//	wave_sample(0.63, vec2(0, 0), vec2(8, -5), t, dt, X, dXdt, dXdp);
-	waves_distribute(0.05, t, dt, X, dXdt, dXdp);
+//	wave_sample(amplitude, vec2(-4, 2), vec2(8, -5), 0.5, 0.1, X, dXdt, dXdp);
+	waves_distribute(p, amplitude, t, dt, X, dXdt, dXdp);
 
 	// Zup -> Yup
-	position = vec3(X.x, X.z, -X.y);
-	velocity = vec3(dXdt.x, dXdt.z, -dXdt.y);
+	position = X;
+	velocity = dXdt;
 //	vec3 znor = normalize(cross(dXdp[0], dXdp[1]));
 //	vec3 znor = normalize(cross(vec3(dXdp[0][0], dXdp[1][0], dXdp[2][0]), vec3(dXdp[0][1], dXdp[1][1], dXdp[2][1])));
-	vec3 znor = normalize(transpose(inverse(dXdp)) * vec3(0, 0, -1));
-	normal = vec3(znor.x, znor.z, -znor.y);
+	mat3 nortfm = transpose(inverse(dXdp));
+//	mat3 nortfm = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1));
+	normal = normalize(nortfm * vec3(0, 1, 0));
 //	normal = -normalize(znor);
+
+//	mat3 test = mat3(dXdp[0], vec3(0, 1, 0), dXdp[1]);
+	mat3 test = dXdp;
+	bool tt = determinant(test) >= 0.0;
+	debug = vec3(tt ? 1.0 : 0.0, tt ? 0.0 : 1.0, 0);
+//	debug = vec3(sign(dXdp[0][0]), sign(dXdp[1][1]), sign(dXdp[2][2]));
+//	debug = dXdp[1];
 }
 
 // END_IMPORT
@@ -233,7 +247,8 @@ uniform float beach_alpha_fadeout = 0.05;
 void vertex()
 {
 	vec3 velocity;
-	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, NORMAL);
+	vec3 debug;
+	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, NORMAL, debug);
 	
 //	float camera_distance = length(CAMERA_MATRIX[3].xyz - (WORLD_MATRIX[3].xyz - VERTEX)) / 1000.0;
 //	COLOR[0] = camera_distance;
@@ -246,8 +261,10 @@ void fragment()
 	vec3 wave_vertex;
 	vec3 wave_velocity;
 	vec3 wave_normal;
-	waves(wave_pos, time, 0.0, wave_vertex, wave_velocity, wave_normal);
-	vec3 normal_output = wave_normal * 0.5 + 0.5;
+	vec3 debug;
+	waves(wave_pos, time, 0.0, wave_vertex, wave_velocity, wave_normal, debug);
+	// Swizzle the normal components from Y-up to Z-up
+	vec3 normal_output = vec3(wave_normal.x, -wave_normal.z, wave_normal.y) * 0.5 + 0.5;
 
 //	vec3 normal_output = 0.5 * (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz + 0.5;
 //	normal_output = vec3(0, 0, 0.5);
@@ -275,6 +292,7 @@ void fragment()
 	albedo_output = water_color.rgb;
 //	albedo_output = normal_output;
 //	albedo_output = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz * 0.5 + 0.5;
+//	albedo_output = mix(debug, albedo_output, 0.8);
 
 //	albedo_output = mix(albedo_output, albedo_output + albedo_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
 //	normal_output = mix(normal_output, normal_output + normal_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
