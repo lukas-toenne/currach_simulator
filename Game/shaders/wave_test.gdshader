@@ -11,61 +11,137 @@ render_mode diffuse_lambert, specular_schlick_ggx, depth_draw_always;
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 vec3 hash(vec3 p) {
-    p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
-             dot(p, vec3(269.5, 183.3, 246.1)),
-             dot(p, vec3(113.5, 271.9, 124.6)));
+	p = vec3(
+		dot(p, vec3(127.1, 311.7, 74.7)),
+		dot(p, vec3(269.5, 183.3, 246.1)),
+		dot(p, vec3(113.5, 271.9, 124.6)));
 
-    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+	return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
 }
 
 float noise(vec3 p) {
-  vec3 i = floor(p);
-  vec3 f = fract(p);
-  vec3 u = f * f * (3.0 - 2.0 * f);
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	vec3 u = f * f * (3.0 - 2.0 * f);
 
-  return mix(mix(mix(dot(hash(i + vec3(0.0, 0.0, 0.0)), f - vec3(0.0, 0.0, 0.0)),
-                     dot(hash(i + vec3(1.0, 0.0, 0.0)), f - vec3(1.0, 0.0, 0.0)), u.x),
-                 mix(dot(hash(i + vec3(0.0, 1.0, 0.0)), f - vec3(0.0, 1.0, 0.0)),
-                     dot(hash(i + vec3(1.0, 1.0, 0.0)), f - vec3(1.0, 1.0, 0.0)), u.x), u.y),
-             mix(mix(dot(hash(i + vec3(0.0, 0.0, 1.0)), f - vec3(0.0, 0.0, 1.0)),
-                     dot(hash(i + vec3(1.0, 0.0, 1.0)), f - vec3(1.0, 0.0, 1.0)), u.x),
-                 mix(dot(hash(i + vec3(0.0, 1.0, 1.0)), f - vec3(0.0, 1.0, 1.0)),
-                     dot(hash(i + vec3(1.0, 1.0, 1.0)), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z );
+	float d000 = dot(hash(i + vec3(0.0, 0.0, 0.0)), f - vec3(0.0, 0.0, 0.0));
+	float d100 = dot(hash(i + vec3(1.0, 0.0, 0.0)), f - vec3(1.0, 0.0, 0.0));
+	float d010 = dot(hash(i + vec3(0.0, 1.0, 0.0)), f - vec3(0.0, 1.0, 0.0));
+	float d110 = dot(hash(i + vec3(1.0, 1.0, 0.0)), f - vec3(1.0, 1.0, 0.0));
+	float d001 = dot(hash(i + vec3(0.0, 0.0, 1.0)), f - vec3(0.0, 0.0, 1.0));
+	float d101 = dot(hash(i + vec3(1.0, 0.0, 1.0)), f - vec3(1.0, 0.0, 1.0));
+	float d011 = dot(hash(i + vec3(0.0, 1.0, 1.0)), f - vec3(0.0, 1.0, 1.0));
+	float d111 = dot(hash(i + vec3(1.0, 1.0, 1.0)), f - vec3(1.0, 1.0, 1.0));
+
+	float m_00 = mix(d000, d100, u.x);
+	float m_10 = mix(d010, d110, u.x);
+	float m_01 = mix(d001, d101, u.x);
+	float m_11 = mix(d011, d111, u.x);
+	float m__0 = mix(m_00, m_10, u.y);
+	float m__1 = mix(m_01, m_11, u.y);
+	float m___ = mix(m__0, m__1, u.z);
+	return m___;
+}
+
+vec3 dnoise(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	vec3 u = f * f * (3.0 - 2.0 * f);
+	vec3 du = 6.0 * f * (1.0 - f);
+
+	vec3 dd000 = hash(i + vec3(0.0, 0.0, 0.0));
+	vec3 dd100 = hash(i + vec3(1.0, 0.0, 0.0));
+	vec3 dd010 = hash(i + vec3(0.0, 1.0, 0.0));
+	vec3 dd110 = hash(i + vec3(1.0, 1.0, 0.0));
+	vec3 dd001 = hash(i + vec3(0.0, 0.0, 1.0));
+	vec3 dd101 = hash(i + vec3(1.0, 0.0, 1.0));
+	vec3 dd011 = hash(i + vec3(0.0, 1.0, 1.0));
+	vec3 dd111 = hash(i + vec3(1.0, 1.0, 1.0));
+
+	float d000 = dot(dd000, f - vec3(0.0, 0.0, 0.0));
+	float d100 = dot(dd100, f - vec3(1.0, 0.0, 0.0));
+	float d010 = dot(dd010, f - vec3(0.0, 1.0, 0.0));
+	float d110 = dot(dd110, f - vec3(1.0, 1.0, 0.0));
+	float d001 = dot(dd001, f - vec3(0.0, 0.0, 1.0));
+	float d101 = dot(dd101, f - vec3(1.0, 0.0, 1.0));
+	float d011 = dot(dd011, f - vec3(0.0, 1.0, 1.0));
+	float d111 = dot(dd111, f - vec3(1.0, 1.0, 1.0));
+
+	float m_00 = mix(d000, d100, u.x);
+	float m_10 = mix(d010, d110, u.x);
+	float m_01 = mix(d001, d101, u.x);
+	float m_11 = mix(d011, d111, u.x);
+	float m__0 = mix(m_00, m_10, u.y);
+	float m__1 = mix(m_01, m_11, u.y);
+	float m___ = mix(m__0, m__1, u.z);
+
+	vec3 dm_00 = mix(dd000, dd100, u.x) +  vec3((d100 - d000) * du.x, 0, 0);
+	vec3 dm_10 = mix(dd010, dd110, u.x) + vec3((d110 - d010) * du.x, 0, 0);
+	vec3 dm_01 = mix(dd001, dd101, u.x) + vec3((d101 - d001) * du.x, 0, 0);
+	vec3 dm_11 = mix(dd011, dd111, u.x) + vec3((d111 - d011) * du.x, 0, 0);
+	vec3 dm__0 = mix(dm_00, dm_10, u.y) + vec3(0, (m_10 - m_00) * du.y, 0);
+	vec3 dm__1 = mix(dm_01, dm_11, u.y) + vec3(0, (m_11 - m_01) * du.y, 0);
+	vec3 dm___ = mix(dm__0, dm__1, u.z) + vec3(0, 0, (m__1 - m__0) * du.z);
+	return dm___;
 }
 
 float fbm(vec3 x) {
-  float height = 0.0;
-  float amplitude = 0.5;
-  float frequency = 1.0;
-  for (int i = 0; i < 3; i++){
-    height += noise(x * frequency) * amplitude;
-    amplitude *= 0.5;
-    frequency *= 2.0;
-  }
-  return height;
+	float height = 0.0;
+	float wave_amplitude = 0.5;
+	float frequency = 1.0;
+	for (int i = 0; i < 3; i++){
+		height += noise(x * frequency) * wave_amplitude;
+		wave_amplitude *= 0.5;
+		frequency *= 2.0;
+	}
+	return height;
+}
+
+vec3 dfbm(vec3 x) {
+	vec3 dheight = vec3(0);
+	float wave_amplitude = 0.5;
+	float frequency = 1.0;
+	for (int i = 0; i < 3; i++){
+		dheight += dnoise(x * frequency) * wave_amplitude * frequency;
+		wave_amplitude *= 0.5;
+		frequency *= 2.0;
+	}
+	return dheight;
 }
 
 
 const float PI = 3.14159265359;
 
+uniform float wave_amplitude = 0.1;
 uniform float wave_length = 3.0;
-uniform float phase_speed = 1.0;
+uniform float wave_speed = 1.0;
 uniform float wave_lifetime = 3.0;
-uniform float kernel_radius = 3.0;
+uniform float wave_radius = 3.0;
+
+uniform sampler2D terrain_heightmap;
+uniform sampler2D terrain_normalmap;
+uniform mat4 terrain_inverse_transform;
+uniform mat3 terrain_normal_basis;
+uniform float terrain_height_min = -1.0;
+uniform float terrain_height_max = 1.0;
 
 uniform sampler2D flow_map;
 uniform vec2 flow_map_origin = vec2(0, 0);
 uniform vec2 flow_map_scale = vec2(1, 1);
+uniform int flow_samples = 20;
 
 float cell_size()
 {
-	return phase_speed * wave_lifetime + kernel_radius;
+	return wave_speed * wave_lifetime + wave_radius;
 }
 
-uniform float amplitude = 1.0;
-uniform float detail_amplitude = 0.1;
-uniform float detail_scale = 0.4;
-uniform float detail_speed = 0.2;
+vec3 unpack_normal(vec4 rgba) {
+	vec3 n = rgba.xzy * 2.0 - vec3(1.0);
+	// Had to negate Z because it comes from Y in the normal map,
+	// and OpenGL-style normal maps are Y-up.
+	n.z *= -1.0;
+	return n;
+}
 
 float rect(float x)
 {
@@ -75,7 +151,7 @@ float rect(float x)
 
 void wave_kernel(vec2 p, float A, vec2 center, vec2 travel, float lambda, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp, out float color)
 {
-	float r = kernel_radius;
+	float r = wave_radius;
 	vec3 dist = vec3(p.x - center.x, 0, p.y - center.y);
 
 	// Envelope
@@ -103,7 +179,7 @@ void wave_kernel(vec2 p, float A, vec2 center, vec2 travel, float lambda, float 
 	float v = dot(dist, ortho);
 	vec3 local = vec3(u, v, 0);
 	
-	color = 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
+	color = 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l) * 0.2;
 	if (abs(l - 1.0) < 0.01)
 	{
 		color = 1.0;
@@ -115,10 +191,10 @@ float rayleigh_sample(float mean, float u)
 	return mean * sqrt(max(-4.0 / PI * log(1.0 - u), 0.0));
 }
 
-void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, out float dir, out float lambda, out float alpha, out vec3 color)
+void wave_sample(vec2 cell, int seed, float t, vec3 terrain_normal, out float amp, out vec2 start, out float dir, out float lambda, out float alpha, out vec3 color)
 {
-	vec3 q = hash(vec3(float(seed), cell.y, cell.x)) * 0.5 + 0.5;
-	float phase_shift = q.x;
+	vec3 rand1 = hash(vec3(float(seed), cell.y, cell.x)) * 0.5 + 0.5;
+	float phase_shift = rand1.x;
 	// XXX Precision could suffer for large t, problem?
 	// Should keep a rolling value in 0..1 range incremenenting by dt,
 	// but has to happen outside of the shader.
@@ -126,50 +202,72 @@ void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, ou
 	alpha = fract(sample_phase);
 	// Derived seed value that changes with each iteration
 	float nseed = float(seed) + 82.3 * floor(sample_phase);
+	vec3 rand2 = hash(vec3(cell.x, cell.y, nseed)) * 0.5 + 0.5;
+	vec3 rand3 = hash(vec3(cell.y, nseed, cell.x)) * 0.5 + 0.5;
 
-	vec3 u = hash(vec3(cell.x, cell.y, nseed)) * 0.5 + 0.5;
-	vec3 v = hash(vec3(cell.y, nseed, cell.x)) * 0.5 + 0.5;
-
-	amp = amplitude;
+	amp = wave_amplitude;
 	lambda = wave_length;
-//	float freq = rayleigh_sample(phase_speed / wave_length, u.x);
+//	float freq = rayleigh_sample(wave_speed / wave_length, rand2.x);
 //	float freq2 = freq * freq;
 //	float freq4 = freq2 * freq2;
 //	float freq5 = freq4 * freq;
 //	float B = 1.0;
-//	amp = amplitude * exp(-B / freq4) / freq5 * 1000.0;
-//	lambda = phase_speed / freq;
-	// Clamp amplitude to avoid overlap at the crest.
+//	amp = wave_amplitude * exp(-B / freq4) / freq5 * 1000.0;
+//	lambda = wave_speed / freq;
+	// Clamp wave_amplitude to avoid overlap at the crest.
 	amp = min(amp, 0.5 * lambda / PI);
 
-	start = (cell + v.xy) * cell_size();
+	start = (cell + rand3.xy) * cell_size();
 
-	vec2 flow_uv = (start - flow_map_origin) / flow_map_scale;
-	vec4 flow = textureLod(flow_map, flow_uv, 0.0);
-	dir = 6.0 * PI * flow.r;
-//	dir = 2.0 * PI * v.z;
+// >>> FLOW METHODS
+//	vec2 flow_uv = (start - flow_map_origin) / flow_map_scale;
+//	vec4 flow = textureLod(flow_map, flow_uv, 0.0);
+//	dir = 6.0 * PI * flow.r;
 
-	color = u;
+//	dir = 2.0 * PI * rand3.z;
+
+	float terrain_dir = atan(-terrain_normal.z, -terrain_normal.x);
+	dir = terrain_dir;
+// <<< FLOW METHODS
+
+	color = rand2;
 }
 
-void wave_sum(vec2 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp, out vec3 particle_color)
+void wave_sum(vec2 p, vec4 wpos, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp, out vec3 particle_color)
 {
 	X = vec3(p.x, 0, p.y);
 	dXdp = mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1));
 	dXdt = vec3(0, 0, 0);
-	particle_color = vec3(0.5);
+	particle_color = vec3(0.0);
 
-	float travel_dist = phase_speed * wave_lifetime;
+	float travel_dist = wave_speed * wave_lifetime;
 	float dalpha = dt / wave_lifetime;
 	
 	float cx = floor(p.x / cell_size());
 	float cy = floor(p.y / cell_size());
 
+	vec2 terrain_cell_coords = (terrain_inverse_transform * wpos).xz;
+	// Must add a half-offset so that we sample the center of pixels,
+	// otherwise bilinear filtering of the textures will give us mixed results (#183)
+	terrain_cell_coords += vec2(0.5);
+	// Normalized UV
+	vec2 terrain_uv = terrain_cell_coords / vec2(textureSize(terrain_heightmap, 0));
+	// Height displacement
+	float terrain_height = texture(terrain_heightmap, terrain_uv).r;
+
+	// TODO choose LOD for terrain normal texture such that it averages over the whole wave cell,
+	// i.e. LOD = ceil(log2(wave_cell_size / terrain_cell_size)),
+	// where terrain_cell_size = terrain_transform * vec3(1)
+	// Ideally the wave cell size should be a multiple of the terrain cell size!
+
+	// Need to use u_terrain_normal_basis to handle scaling.
+	vec3 terrain_normal = terrain_normal_basis * unpack_normal(texture(terrain_normalmap, terrain_uv));
+	
 	for (int j = -1; j <= 1; ++j)
 	{
 		for (int i = -1; i <= 1; ++i)
 		{
-			for (int k = 0; k < 20; ++k)
+			for (int k = 0; k < flow_samples; ++k)
 			{
 				vec2 cell = vec2(cx + float(i), cy + float(j));
 				
@@ -179,7 +277,7 @@ void wave_sum(vec2 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXd
 				float lambda;
 				float alpha;
 				vec3 color;
-				wave_sample(cell, k, t, amp, start, dir, lambda, alpha, color);
+				wave_sample(cell, k, t, terrain_normal, amp, start, dir, lambda, alpha, color);
 
 				vec2 travel = vec2(cos(dir), sin(dir)) * travel_dist;
 				vec2 center = start + alpha * travel;
@@ -202,26 +300,32 @@ void wave_sum(vec2 p, float t, float dt, out vec3 X, out vec3 dXdt, out mat3 dXd
 			}
 		}
 	}
+	
+//	float r = normalize(terrain_normal).x;
+//	float r = terrain_uv.x * 0.001;
+//	float r = clamp((h - terrain_height_min) / (terrain_height_max - terrain_height_min), 0, 1);
+//	particle_color = vec3(1.0 - r, r, 0);
+//	particle_color = texture(terrain_normalmap, terrain_uv).xyz;
+//	particle_color += terrain_normal * vec3(1, 0, 1);
 }
 
-void waves(vec2 p, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal, out vec3 particle_color)
+void waves(vec2 p, vec4 wpos, float t, float dt, out vec3 position, out vec3 velocity, out vec3 normal, out vec3 tangent, out float foam, out vec3 particle_color)
 {
 	vec3 X;
 	mat3 dXdp;
 	vec3 dXdt;
 
-//	wave_kernel(p, amplitude, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp, local, envelope);
-//	wave_sample(p, amplitude, vec2(-4, 2), vec2(8, -5), 0.5, 0.1, X, dXdt, dXdp, local, envelope);
-	wave_sum(p, t, dt, X, dXdt, dXdp, particle_color);
-	
-	vec3 detail_uv = vec3(p.x, t * detail_speed, p.y) / detail_scale;
-	vec3 detail = vec3(fbm(detail_uv.xyz), fbm(detail_uv.yzx), fbm(detail_uv.zxy));
-	dXdp = dXdp + transpose(mat3(vec3(0), detail, vec3(0))) * detail_amplitude;
+//	wave_kernel(p, wave_amplitude, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp, local, envelope);
+//	wave_sample(p, wave_amplitude, vec2(-4, 2), vec2(8, -5), 0.5, 0.1, X, dXdt, dXdp, local, envelope);
+	wave_sum(p, wpos, t, dt, X, dXdt, dXdp, particle_color);
 
 	position = X;
 	velocity = dXdt;
 	mat3 nortfm = transpose(inverse(dXdp));
 	normal = normalize(nortfm * vec3(0, 1, 0));
+	tangent = normalize(nortfm * vec3(0, 0, 1));
+	
+	foam = clamp(1.0 - determinant(dXdp), 0, 1);
 }
 
 // END_IMPORT
@@ -252,76 +356,94 @@ void waves(vec2 p, float t, float dt, out vec3 position, out vec3 velocity, out 
 //SOFTWARE.
 
 uniform float time = 0.0;
-uniform vec4 water_color: hint_color = vec4(0.45, 0.51, 0.55, 1);
-uniform float water_color_depth = 1.0;
+varying vec3 WAVE_POSITION;
+
+uniform bool use_detail = true;
+uniform float detail_amplitude = 0.25;
+uniform float detail_scale = 1.0;
+uniform float detail_speed = 1.0;
+
+varying float FOAM;
+uniform float foam_scale = 10.0;
+uniform float foam_min : hint_range(0, 1) = 0.0;
+uniform float foam_max : hint_range(0, 1) = 1.0;
+
+uniform vec4 water_color : hint_color;
+uniform float water_density = 0.1;
 uniform float sss_strength = 7.0;
 uniform float beach_alpha_fadeout = 0.05;
 
 uniform bool use_flat_shader = false;
 uniform float particle_viz : hint_range(0, 1) = 0.0;
-uniform bool accurate_normals = false;
 
 void vertex()
 {
+	// Store the original vertex location to use as a texture parameter in the fragment function.
+	WAVE_POSITION = VERTEX;
+	
+	vec4 wpos = WORLD_MATRIX * vec4(VERTEX, 1);
+	
 	vec3 velocity;
 	vec3 particle_color;
-	waves(VERTEX.xz, time, 0.0, VERTEX, velocity, NORMAL, particle_color);
+	waves(VERTEX.xz, wpos, time, 0.0, VERTEX, velocity, NORMAL, TANGENT, FOAM, particle_color);
 }
 
 void fragment()
 {
 	vec3 normal_output;
 	vec3 particle_color = vec3(0);
-	if (particle_viz > 0.0 || accurate_normals)
+	if (particle_viz > 0.0)
 	{
-		vec2 wave_pos = (CAMERA_MATRIX * vec4(VERTEX, 1.0)).xz;
+		vec2 wave_pos = (CAMERA_MATRIX * vec4(VERTEX, 1)).xz;
+		vec4 wpos = WORLD_MATRIX * vec4(WAVE_POSITION, 1);
 		vec3 wave_vertex;
 		vec3 wave_velocity;
-		vec3 wave_normal;
-		waves(wave_pos, time, 0.0, wave_vertex, wave_velocity, wave_normal, particle_color);
-		
-		if (accurate_normals)
-		{
-			// Swizzle the normal components from Y-up to Z-up
-			normal_output = vec3(wave_normal.x, -wave_normal.z, wave_normal.y) * 0.5 + 0.5;
-		}
+		vec3 wave_normal, wave_tangent;
+		float wave_foam;
+		waves(wave_pos, wpos, time, 0.0, wave_vertex, wave_velocity, wave_normal, wave_tangent, wave_foam, particle_color);
 	}
 
-	if (!accurate_normals)
-	{
-		vec3 znor = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz;
-		normal_output = vec3(znor.x, -znor.z, znor.y) * 0.5 + 0.5;
-	}
-
-//	vec3 normal_output = 0.5 * (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz + 0.5;
-//	normal_output = vec3(0, 0, 0.5);
+	vec3 ynor = mat3(CAMERA_MATRIX) * NORMAL;
+	vec3 ytan = mat3(CAMERA_MATRIX) * TANGENT;
+	vec3 znor = vec3(ynor.x, -ynor.z, ynor.y);
+	vec3 ztan = vec3(ytan.x, -ytan.z, ytan.y);
+	mat3 localmap = mat3(ztan, cross(znor, ztan), znor);
 
 	// UNDERWATER
-	float depth = texture(DEPTH_TEXTURE, SCREEN_UV).r; // LOOSING SS-REFLECTIONS
+    float view_z = textureLod(DEPTH_TEXTURE, SCREEN_UV, 0.0).r * 2.0 - 1.0;
+	// Depth reprojection to get ray length inside water.
+	view_z = PROJECTION_MATRIX[3][2] / (view_z + PROJECTION_MATRIX[2][2]); // Camera Z Depth to World Space Z
+	float depth = view_z + VERTEX.z;
 
-	// DEPTH REPROJECTION FROM CAMERA Z to Z Axis
-	depth = depth * 2.0 - 1.0;
-	depth = PROJECTION_MATRIX[3][2] / (depth + PROJECTION_MATRIX[2][2]); // Camera Z Depth to World Space Z
-	depth = depth + VERTEX.z;
+//	// NORMAL APPLIED TO DEPTH AND READ FROM BUFFER AGAIN (DISTORTED Z-DEPTH)
+//	depth = texture(DEPTH_TEXTURE, SCREEN_UV + (znor.xy * clamp(depth * 0.1, 0.0, 0.1) )).r;
+//	depth = depth * 2.0 - 1.0;
+//	depth = PROJECTION_MATRIX[3][2] / (depth + PROJECTION_MATRIX[2][2]); // Camera Z Depth to World Space Z
+//	depth = depth + VERTEX.z;
 
-	// NORMAL APPLIED TO DEPTH AND READ FROM BUFFER AGAIN (DISTORTED Z-DEPTH)
-	depth = texture(DEPTH_TEXTURE, SCREEN_UV + ((normal_output.xy - vec2(0.5, 0.5)) * clamp(depth * 0.2, 0.0, 0.1) )).r;
-	depth = depth * 2.0 - 1.0;
-	depth = PROJECTION_MATRIX[3][2] / (depth + PROJECTION_MATRIX[2][2]); // Camera Z Depth to World Space Z
-	depth = depth + VERTEX.z;
-
-//	float depth_mask = clamp(depth * underwater_tex_border, 0.0, 1.0);
+	if (use_detail)
+	{
+		vec3 detail_uv = vec3(WAVE_POSITION.x, time * detail_speed, WAVE_POSITION.z) / detail_scale;
+		float detail = fbm(detail_uv);
+		mat3 detail_tfm = transpose(inverse(mat3(1) + detail_amplitude * mat3(vec3(0), dfbm(detail_uv), vec3(0))));
+		normal_output = detail_tfm * localmap[2] * 0.5 + 0.5;
+	}
+	else
+	{
+		normal_output = znor * 0.5 + 0.5;
+	}
 
 	// WATER COLOR GRADIENT
-//	vec3 water_gradient = texture(water_color, vec2(depth * water_color_depth, 0.5)).xyz;
-	vec3 water_gradient = mix(water_color.rgb, water_color.rgb * 0.3, clamp(depth / water_color_depth, 0, 1));
+//	vec3 water_gradient = texture(water_color, vec2(7depth / water_color_depth, 0.5)).xyz;
+//	vec3 water_gradient = mix(water_color.rgb, vec3(0), clamp(depth / water_color_depth, 0, 1));
 	vec3 albedo_output;
 	float alpha_output;
 	float specular_output;
 	float roughness_output;
 	if (use_flat_shader)
 	{
-		albedo_output = water_color.rgb;
+		albedo_output = vec3(0.5);
+//		albedo_output = water_color.rgb;
 //		albedo_output = normal_output;
 //		albedo_output = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz * 0.5 + 0.5;
 //		albedo_output = mix(debug, albedo_output, 0.8);
@@ -333,16 +455,39 @@ void fragment()
 	}
 	else
 	{
-	 	albedo_output = water_gradient;
+//	 	albedo_output = water_gradient;
+//	 	albedo_output = mix(albedo_output, vec3(1, 1, 1), smoothstep(COLOR.r, 0.0, 0.01));
+//		albedo_output = vec3(clamp((fbm(wave_pos) - foam_threshold) / (1.0 - foam_threshold), 0, 1)) * foam_threshold;
+//		albedo_output = vec3(clamp((fbm(wave_pos * 100.0) - foam_threshold) / (1.0 - foam_threshold), 0, 1)) * foam_threshold;
+		albedo_output = water_color.rgb;
+		// XXX Simple absorption based on vertical depth.
+		// In Godot 4.0 it should be possible to pass depth to actual light function
+		// as a global shader variable and do more accurate light estimation.
+		float vdepth = (CAMERA_MATRIX * vec4(0, 0, depth, 0)).y;
+		albedo_output *= exp(-water_density * vdepth);
 
-//		albedo_output = mix(albedo_output, albedo_output + albedo_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
-//		normal_output = mix(normal_output, normal_output + normal_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
-//
-//		// BEACH
-//		normal_output = mix(vec3(0.5, 0.5, 1.0), normal_output, clamp( smoothstep(depth, 0.0, beach_normal_fadeout) + mask_beach_waves, 0.5, 1.0) ); // smooth out
-		alpha_output = smoothstep(depth, 0.00, beach_alpha_fadeout);
+//		alpha_output = clamp(depth / water_color_depth, 0, 1);
+//		alpha_output = smoothstep(depth, 0.00, beach_alpha_fadeout);
+		alpha_output = 1.0 - exp(-water_density * depth);
 		specular_output = 0.6;
 		roughness_output = 0.08;
+
+		// FOAM
+//		float foam_mask = clamp((FOAM - foam_min) / (foam_max - foam_min), 0, 1);
+		float foam_mask = smoothstep(foam_min, foam_max, FOAM);
+//		float foam_mask = (fbm(wave_pos * foam_scale) - COLOR.r);
+		foam_mask *= fbm(WAVE_POSITION * foam_scale) * 0.5 + 0.5;
+
+		albedo_output = mix(albedo_output, vec3(1), foam_mask);
+//		albedo_output = mix(albedo_output, albedo_output + albedo_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
+//		normal_output = mix(normal_output, normal_output + normal_foam_a, (1.0 - smoothstep(COLOR[0], 0.0, normal_dist_fadeout) ) * (mask_foam * foam_amount + mask_beach_waves) + (height_gerstner.y * foam_gerstner + height_gerstner_2.y * foam_gerstner ) );
+		specular_output = mix(specular_output, 0.2, foam_mask);
+		roughness_output = mix(roughness_output, 1.0, foam_mask);
+		alpha_output = mix(alpha_output, 0.8, foam_mask);
+
+//		// BEACH
+//		normal_output = mix(vec3(0.5, 0.5, 1.0), normal_output, clamp( smoothstep(depth, 0.0, beach_normal_fadeout) + mask_beach_waves, 0.5, 1.0) ); // smooth out
+//		alpha_output = smoothstep(alpha_output, 0.0, beach_alpha_fadeout);
 	}
 	albedo_output = mix(albedo_output, particle_color, particle_viz);
 	
