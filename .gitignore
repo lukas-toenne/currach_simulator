@@ -9,6 +9,3 @@ export_presets.cfg
 data_*/
 
 *.blend1
-
-Game/addons/zylann.hterrain/
-Game/addons/zylann.debug_draw/
