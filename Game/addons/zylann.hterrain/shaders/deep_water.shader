@@ -147,51 +147,51 @@ vec3 unpack_normal(vec4 rgba) {
 	return n;
 }
 
-float rect(float x)
-{
-	float ax = abs(x);
-	return ax < 0.5 ? 1.0 : (ax == 0.5 ? 0.5 : 0.0);
-}
-
 // Compression for derivative colors to fit into 0..1 range.
 uniform float wave_kernel_color_factor = 0.5;
 
-void wave_kernel(vec2 p, float A, vec2 center, vec2 travel, float lambda, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp, out float color)
-{
-	float r = wave_radius;
-	vec3 dist = vec3(p.x - center.x, 0, p.y - center.y);
-
-	// Envelope
-	float l = length(dist) / r;
-	vec3 dldp = dist / (length(dist) * r);
-	float D = A * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
-	vec3 dDdp = -A * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
-	
-	vec3 dir = normalize(vec3(travel.x, 0, travel.y));
-
-	float u = dot(dist, dir);
-	vec3 dudp = dir;
-	float w = 2.0 * PI * u / lambda;
-	vec3 dwdp = 2.0 * PI * dudp / lambda;
-
-	vec3 L = -sin(w) * dir;
-	mat3 dLdp = -cos(w) * outerProduct(dir, dwdp);
-	vec3 H = vec3(0, cos(w), 0);
-	mat3 dHdp = transpose(mat3(vec3(0, 0, 0), -sin(w) * dwdp, vec3(0, 0, 0)));
-	
-	X = (L + H) * D;
-	dXdp = (dLdp + dHdp) * D + outerProduct(L + H, dDdp);
-	
-	vec3 ortho = vec3(dir.y, 0, -dir.x);
-	float v = dot(dist, ortho);
-	vec3 local = vec3(u, v, 0);
-	
-	color = 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l) * 0.2;
-	if (abs(l - 1.0) < 0.01)
-	{
-		color = 1.0;
-	}
-}
+// XXX Procedural kernel function: no texture lookup but lacks filtering (mipmaps)
+//float rect(float x)
+//{
+//	float ax = abs(x);
+//	return ax < 0.5 ? 1.0 : (ax == 0.5 ? 0.5 : 0.0);
+//}
+//void wave_kernel(vec2 p, float A, vec2 center, vec2 travel, float lambda, float dt, out vec3 X, out vec3 dXdt, out mat3 dXdp, out float color)
+//{
+//	float r = wave_radius;
+//	vec3 dist = vec3(p.x - center.x, 0, p.y - center.y);
+//
+//	// Envelope
+//	float l = length(dist) / r;
+//	vec3 dldp = dist / (length(dist) * r);
+//	float D = A * 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l);
+//	vec3 dDdp = -A * 0.5 * sin(PI * l) * rect(0.5 * l) * PI * dldp;
+//
+//	vec3 dir = normalize(vec3(travel.x, 0, travel.y));
+//
+//	float u = dot(dist, dir);
+//	vec3 dudp = dir;
+//	float w = 2.0 * PI * u / lambda;
+//	vec3 dwdp = 2.0 * PI * dudp / lambda;
+//
+//	vec3 L = -sin(w) * dir;
+//	mat3 dLdp = -cos(w) * outerProduct(dir, dwdp);
+//	vec3 H = vec3(0, cos(w), 0);
+//	mat3 dHdp = transpose(mat3(vec3(0, 0, 0), -sin(w) * dwdp, vec3(0, 0, 0)));
+//
+//	X = (L + H) * D;
+//	dXdp = (dLdp + dHdp) * D + outerProduct(L + H, dDdp);
+//
+//	vec3 ortho = vec3(dir.y, 0, -dir.x);
+//	float v = dot(dist, ortho);
+//	vec3 local = vec3(u, v, 0);
+//
+//	color = 0.5 * (cos(PI * l) + 1.0) * rect(0.5 * l) * 0.2;
+//	if (abs(l - 1.0) < 0.01)
+//	{
+//		color = 1.0;
+//	}
+//}
 
 void wave_kernel_uv(vec2 p, vec2 center, vec2 travel, float lambda, out vec2 kernel_uv, out mat2 kernel_duv, out mat3 kernel_matrix)
 {
@@ -319,21 +319,18 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 				// Derivative of texture UV coordinates per screen pixel.
 				ker_duv = ker_duv * mat2(world_dx.xz, world_dy.xz);
 				
-//				float lod = mip_level(ker_uv);
-//				vec2 ker_dx = dFdx(ker_uv);
-//	vec2 dy = dFdy(uv);
-				float lod = 0.0;
-
 				// Time envelope
 				float timefac = 0.5 * (1.0 - cos(2.0 * PI * alpha));
 				amp *= timefac;
 				color *= timefac;
 
+				// XXX Procedural kernel function: no texture lookup but lacks filtering (mipmaps)
 //				vec3 ker_X;
 //				mat3 ker_dXdp;
 //				vec3 ker_dXdt;
 //				vec3 ker_color;
 //				wave_kernel(wpos.xz, amp, center, travel, lambda, dt, ker_X, ker_dXdt, ker_dXdp, ker_color);
+
 				ivec2 tex_size = textureSize(u_wave_kernel_particle, 0);
 //				ivec2 tex_size_sq = tex_size * tex_size;
 				ivec2 tex_size_sq = ivec2(1) * 8;
@@ -352,34 +349,9 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 				dXdp = dXdp + ker_matrix * ker_dXdp * amp;
 //				dXdt += ker_dXdt;
 				particle_color += clamp(ker_color.r + ker_color.g * 0.5 + ker_color.b * 0.1, 0, 1.0) * color;
-//				particle_color = vec3(log2(ker_lod) / 10.0, 0, 0);
 			}
 		}
 	}
-	
-//	float r = normalize(terrain_normal).x;
-//	float r = terrain_uv.x * 0.001;
-//	float r = clamp((h - terrain_height_min) / (terrain_height_max - terrain_height_min), 0, 1);
-//	float r = terrain_height * 1.0;
-//	particle_color = vec3(1.0 - r, r, 0);
-//	particle_color = texture(terrain_normalmap, terrain_uv).xyz;
-//	particle_color += terrain_normal * vec3(1, 0, 1);
-//	vec2 kernel_uv = (wpos.xz - vec2(0)) / wave_radius;
-//	particle_color = texture(u_wave_kernel_particle, kernel_uv).rgb;
-//	particle_color = vec3(kernel_uv, 0);
-//	particle_color = fract(wpos.xyz);
-//	particle_color = fract(vec3(cx, cy, 0) * 0.1);
-//	particle_color = hash(vec3(float(0), cy, cx)) * 0.5 + 0.5;
-//	float tmp = length(dXdp[0]) + length(dXdp[1]) + length(dXdp[2]);
-//	particle_color = vec3(tmp, 1.0 - tmp, 0);
-//	float tmp = determinant(dXdp) * 10000.0;
-//	particle_color = vec3(tmp, 1.0 - tmp, 0);
-//	particle_color = dXdp[2];
-//	particle_color = vec3(terrain_height, 0, 0);
-//	particle_color = vec3(terrain_cell_coords * 0.001, 0);
-//	particle_color = vec3(terrain_uv.x > 1.0 ? 1.0 : 0.0, terrain_uv.y > 1.0 ? 1.0 : 0.0, 0);
-//	particle_color = vec3(wpos.xz * 0.001, 0);
-//	particle_color = vec3(terrain_normal);
 }
 
 void waves(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out vec3 position, out vec3 velocity, out vec3 normal, out vec3 tangent, out float foam, out vec3 particle_color)
@@ -388,8 +360,6 @@ void waves(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out vec3 
 	mat3 dXdp;
 	vec3 dXdt;
 
-//	wave_kernel(p, wave_amplitude, vec2(0, 0), normalize(linear_direction), dt, X, dXdt, dXdp, local, envelope);
-//	wave_sample(p, wave_amplitude, vec2(-4, 2), vec2(8, -5), 0.5, 0.1, X, dXdt, dXdp, local, envelope);
 	wave_sum(wpos, t, dt, world_projection_matrix, X, dXdt, dXdp, particle_color);
 
 	position = X;
@@ -399,8 +369,6 @@ void waves(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out vec3 
 	tangent = normalize(nortfm * vec3(0, 0, 1));
 	
 	foam = clamp(1.0 - determinant(dXdp), 0, 1);
-	
-//	particle_color = vec3(1.0*normal.x, -1.0*normal.z, 1.0*normal.y);
 }
 
 // END_IMPORT
@@ -503,12 +471,6 @@ void fragment()
 	if (use_detail)
 	{
 		vec3 detail_uv = vec3(WAVE_POSITION.x, time * detail_speed, WAVE_POSITION.z) / detail_scale;
-//		vec3 D = vec3(0, fbm(detail_uv));
-//		mat3 dDdp = transpose(mat3(vec3(0), vec3(0), dfbm(detail_uv)));
-//		mat3 nortfm = transpose(inverse(mat3(1) + detail_amplitude * dDdp));
-//		vec3 Dnor = nortfm * vec3(0, 0, 1);
-//		normal_output = detail_tfm * localmap[2] * 0.5 + 0.5;
-//		particle_color = ddetail;
 		vec3 dDdz = detail_amplitude * dfbm(detail_uv);
 		vec3 Dnor = vec3(-dDdz.x, -dDdz.y, 1) / (1.0 + dDdz.z);
 		normal_output = localmap * Dnor * 0.5 + 0.5;
@@ -529,22 +491,12 @@ void fragment()
 	if (use_flat_shader)
 	{
 		albedo_output = vec3(0.5);
-//		albedo_output = water_color.rgb;
-//		albedo_output = normal_output;
-//		albedo_output = (CAMERA_MATRIX * vec4(normalize(NORMAL), 0)).xyz * 0.5 + 0.5;
-//		albedo_output = mix(debug, albedo_output, 0.8);
-//		albedo_output = vec3(depth, 0, 0);
-
 		alpha_output = 1.0;
 		specular_output = 0.0;
 		roughness_output = 1.0;
 	}
 	else
 	{
-//	 	albedo_output = water_gradient;
-//	 	albedo_output = mix(albedo_output, vec3(1, 1, 1), smoothstep(COLOR.r, 0.0, 0.01));
-//		albedo_output = vec3(clamp((fbm(wave_pos) - foam_threshold) / (1.0 - foam_threshold), 0, 1)) * foam_threshold;
-//		albedo_output = vec3(clamp((fbm(wave_pos * 100.0) - foam_threshold) / (1.0 - foam_threshold), 0, 1)) * foam_threshold;
 		albedo_output = water_color.rgb;
 		// XXX Simple absorption based on vertical depth.
 		// In Godot 4.0 it should be possible to pass depth to actual light function
