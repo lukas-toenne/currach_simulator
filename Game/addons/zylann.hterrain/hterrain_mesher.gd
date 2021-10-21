@@ -15,7 +15,7 @@ var _chunk_size_x := 16
 var _chunk_size_y := 16
 
 
-func configure(chunk_size_x: int, chunk_size_y: int, lod_count: int):
+func configure(chunk_size_x: int, chunk_size_y: int, lod_count: int, make_uvs: bool):
 	assert(typeof(chunk_size_x) == TYPE_INT)
 	assert(typeof(chunk_size_y) == TYPE_INT)
 	assert(typeof(lod_count) == TYPE_INT)
@@ -39,14 +39,14 @@ func configure(chunk_size_x: int, chunk_size_y: int, lod_count: int):
 		_mesh_cache[seams] = slot
 		
 		for lod in range(lod_count):
-			slot[lod] = make_flat_chunk(_chunk_size_x, _chunk_size_y, 1 << lod, seams)
+			slot[lod] = make_flat_chunk(_chunk_size_x, _chunk_size_y, 1 << lod, seams, make_uvs)
 
 
 func get_chunk(lod: int, seams: int) -> Mesh:
 	return _mesh_cache[seams][lod] as Mesh
 
 
-static func make_flat_chunk(quad_count_x: int, quad_count_y: int, stride: int, seams: int) -> Mesh:
+static func make_flat_chunk(quad_count_x: int, quad_count_y: int, stride: int, seams: int, make_uvs: bool) -> Mesh:
 
 	var positions = PoolVector3Array()
 	positions.resize((quad_count_x + 1) * (quad_count_y + 1))
@@ -63,6 +63,17 @@ static func make_flat_chunk(quad_count_x: int, quad_count_y: int, stride: int, s
 	arrays.resize(Mesh.ARRAY_MAX);
 	arrays[Mesh.ARRAY_VERTEX] = positions
 	arrays[Mesh.ARRAY_INDEX] = indices
+
+	if make_uvs:
+		# Use vertex positions for UV vectors.
+		var uvs = PoolVector2Array()
+		uvs.resize(positions.size())
+		i = 0
+		for y in range(quad_count_y + 1):
+			for x in range(quad_count_x + 1):
+				uvs[i] = Vector2(float(x) / float(quad_count_x), float(y) / float(quad_count_y))
+				i += 1
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
 
 	var mesh = ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)

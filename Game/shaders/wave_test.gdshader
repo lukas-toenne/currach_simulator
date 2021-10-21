@@ -491,12 +491,12 @@ void fragment()
 	}
 	albedo_output = mix(albedo_output, particle_color, particle_viz);
 	
-	ALBEDO = clamp(albedo_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
-	SPECULAR = specular_output;
-	ROUGHNESS = roughness_output;
-	METALLIC = 0.0;
-	ALPHA = alpha_output;
+//	ALBEDO = clamp(albedo_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+//	NORMALMAP = clamp(normal_output, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0));
+//	SPECULAR = specular_output;
+//	ROUGHNESS = roughness_output;
+//	METALLIC = 0.0;
+//	ALPHA = alpha_output;
 }
 
 void light()

@@ -77,7 +77,7 @@ func _setup_scene(terrain_size: int):
 	# Make a very small mesh, vertex precision isn't required
 	var plane_res := 4
 	_plane.mesh = \
-		HTerrainMesher.make_flat_chunk(plane_res, plane_res, _viewport_size / plane_res, 0)
+		HTerrainMesher.make_flat_chunk(plane_res, plane_res, _viewport_size / plane_res, 0, false)
 	_plane.material_override = mat
 	_viewport.add_child(_plane)
 	

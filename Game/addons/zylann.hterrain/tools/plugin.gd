@@ -3,6 +3,7 @@ tool # https://www.youtube.com/watch?v=Y7JG63IuaWs
 extends EditorPlugin
 
 const HTerrain = preload("../hterrain.gd")
+const HTerrainWater = preload("../hterrain_water.gd")
 const HTerrainDetailLayer = preload("../hterrain_detail_layer.gd")
 const HTerrainData = preload("../hterrain_data.gd")
 const HTerrainMesher = preload("../hterrain_mesher.gd")
@@ -45,8 +46,8 @@ const MENU_DOCUMENTATION = 8
 const MENU_ABOUT = 9
 
 
-# TODO Rename _terrain
-var _node : HTerrain = null
+var _terrain : HTerrain = null
+var _water : HTerrainWater = null
 
 # GUI
 var _panel = null
@@ -94,6 +95,7 @@ func _enter_tree():
 	_logger.debug(str("DPI scale: ", dpi_scale))
 	
 	add_custom_type("HTerrain", "Spatial", HTerrain, get_icon("heightmap_node"))
+	add_custom_type("HTerrainWater", "Spatial", HTerrainWater, get_icon("heightmap_node"))
 	add_custom_type("HTerrainDetailLayer", "Spatial", HTerrainDetailLayer, 
 		get_icon("detail_layer_node"))
 	add_custom_type("HTerrainData", "Resource", HTerrainData, get_icon("heightmap_data"))
@@ -341,40 +343,86 @@ func _exit_tree():
 
 
 func handles(object):
-	return _get_terrain_from_object(object) != null
+	return _get_terrain_from_object(object) != null || _get_water_from_object(object) != null
 
 
 func edit(object):
 	_logger.debug(str("Edit ", object))
 	
-	var node = _get_terrain_from_object(object)
+	_connect_terrain(object)
+	_connect_water(object)
+
+
+func _connect_terrain(object):
+	if _terrain != null:
+		_terrain.disconnect("tree_exited", self, "_terrain_exited_scene")
+
+	var terrain = _get_terrain_from_object(object)
+	_terrain = terrain
 	
-	if _node != null:
-		_node.disconnect("tree_exited", self, "_terrain_exited_scene")
-	
-	_node = node
-	
-	if _node != null:
-		_node.connect("tree_exited", self, "_terrain_exited_scene")
+	if _terrain != null:
+		_terrain.connect("tree_exited", self, "_terrain_exited_scene")
 	
 	_update_brush_buttons_availability()
 	
-	_panel.set_terrain(_node)
-	_generator_dialog.set_terrain(_node)
-	_import_dialog.set_terrain(_node)
-	_brush.set_terrain(_node)
-	_brush_decal.set_terrain(_node)
-	_generate_mesh_dialog.set_terrain(_node)
-	_resize_dialog.set_terrain(_node)
-	_export_image_dialog.set_terrain(_node)
+	_panel.set_terrain(_terrain)
+	_generator_dialog.set_terrain(_terrain)
+	_import_dialog.set_terrain(_terrain)
+	_brush.set_terrain(_terrain)
+	_brush_decal.set_terrain(_terrain)
+	_generate_mesh_dialog.set_terrain(_terrain)
+	_resize_dialog.set_terrain(_terrain)
+	_export_image_dialog.set_terrain(_terrain)
 	
 	if object is HTerrainDetailLayer:
 		# Auto-select layer for painting
 		if object.is_layer_index_valid():
 			_panel.set_detail_layer_index(object.get_layer_index())
 		_on_detail_selected(object.get_layer_index())
-	
+
 	_update_toolbar_menu_availability()
+
+
+func _connect_water(object):
+	if _water != null:
+		_water.disconnect("tree_exited", self, "_water_exited_scene")
+	
+	var water = _get_water_from_object(object)
+	_water = water
+	
+	if _water != null:
+		_water.connect("tree_exited", self, "_water_exited_scene")
+
+
+func _release_terrain():
+	_logger.debug(str("Releasing terrain ", _terrain))
+	
+	if _terrain != null:
+		_terrain.disconnect("tree_exited", self, "_terrain_exited_scene")
+	
+	_terrain = null
+	
+	_update_brush_buttons_availability()
+	
+	_panel.set_terrain(null)
+	_generator_dialog.set_terrain(null)
+	_import_dialog.set_terrain(null)
+	_brush.set_terrain(null)
+	_brush_decal.set_terrain(null)
+	_generate_mesh_dialog.set_terrain(null)
+	_resize_dialog.set_terrain(null)
+	_export_image_dialog.set_terrain(null)
+
+	_update_toolbar_menu_availability()
+
+
+func _release_water():
+	_logger.debug(str("Releasing water ", _water))
+	
+	if _water != null:
+		_water.disconnect("tree_exited", self, "_water_exited_scene")
+	
+	_water = null
 
 
 static func _get_terrain_from_object(object):
@@ -388,11 +436,20 @@ static func _get_terrain_from_object(object):
 	return null
 
 
+static func _get_water_from_object(object):
+	if object != null and object is Spatial:
+		if not object.is_inside_tree():
+			return null
+		if object is HTerrainWater:
+			return object
+	return null
+
+
 func _update_brush_buttons_availability():
-	if _node == null:
+	if _terrain == null:
 		return
-	if _node.get_data() != null:
-		var data = _node.get_data()
+	if _terrain.get_data() != null:
+		var data = _terrain.get_data()
 		var has_details = (data.get_map_count(HTerrainData.CHANNEL_DETAIL) > 0)
 		
 		if has_details:
@@ -407,7 +464,7 @@ func _update_brush_buttons_availability():
 
 func _update_toolbar_menu_availability():
 	var data_available := false
-	if _node != null and _node.get_data() != null:
+	if _terrain != null and _terrain.get_data() != null:
 		data_available = true
 	var popup : PopupMenu = _menu_button.get_popup()
 	for i in popup.get_item_count():
@@ -447,17 +504,21 @@ func _get_pointed_cell_position(mouse_position: Vector2, p_camera: Camera):# -> 
 	var dir = p_camera.project_ray_normal(screen_pos)
 
 	var ray_distance := p_camera.far * 1.2
-	return _node.cell_raycast(origin, dir, ray_distance)
+	return _terrain.cell_raycast(origin, dir, ray_distance)
 
 
 func forward_spatial_gui_input(p_camera: Camera, p_event: InputEvent) -> bool:
-	if _node == null || _node.get_data() == null:
+	return _forward_terrain_input(p_camera, p_event) || _forward_water_input(p_camera, p_event)
+
+func _forward_terrain_input(p_camera: Camera, p_event: InputEvent) -> bool:
+	if _terrain == null || _terrain.get_data() == null:
 		return false
-	
-	_node._edit_update_viewer_position(p_camera)
-	_panel.set_camera_transform(p_camera.global_transform)
 
 	var captured_event = false
+
+	_terrain._edit_update_viewer_position(p_camera)
+	if _panel:
+		_panel.set_camera_transform(p_camera.global_transform)
 	
 	if p_event is InputEventMouseButton:
 		var mb = p_event
@@ -478,40 +539,52 @@ func forward_spatial_gui_input(p_camera: Camera, p_event: InputEvent) -> bool:
 					# Just finished painting
 					_pending_paint_commit = true
 		
-			if _brush.get_mode() == Brush.MODE_FLATTEN and _brush.has_meta("pick_height") \
-			and _brush.get_meta("pick_height"):
-				_brush.set_meta("pick_height", false)
-				# Pick height
-				var hit_pos_in_cells = _get_pointed_cell_position(mb.position, p_camera)
-				if hit_pos_in_cells != null:
-					var h = _node.get_data().get_height_at(
-						int(hit_pos_in_cells.x), int(hit_pos_in_cells.y))
-					_logger.debug("Picking height {0}".format([h]))
-					_brush.set_flatten_height(h)
+			if _brush:
+				if _brush.get_mode() == Brush.MODE_FLATTEN and _brush.has_meta("pick_height") \
+				and _brush.get_meta("pick_height"):
+					_brush.set_meta("pick_height", false)
+					# Pick height
+					var hit_pos_in_cells = _get_pointed_cell_position(mb.position, p_camera)
+					if hit_pos_in_cells != null:
+						var h = _terrain.get_data().get_height_at(
+							int(hit_pos_in_cells.x), int(hit_pos_in_cells.y))
+						_logger.debug("Picking height {0}".format([h]))
+						_brush.set_flatten_height(h)
 
 	elif p_event is InputEventMouseMotion:
-		var mm = p_event
-		var hit_pos_in_cells = _get_pointed_cell_position(mm.position, p_camera)
-		if hit_pos_in_cells != null:
-			_brush_decal.set_position(Vector3(hit_pos_in_cells.x, 0, hit_pos_in_cells.y))
-			
-			if _mouse_pressed:
-				if Input.is_mouse_button_pressed(BUTTON_LEFT):
-					_brush.paint_input(hit_pos_in_cells)
-					captured_event = true
+		if _brush && _brush_decal:
+			var mm = p_event
+			var hit_pos_in_cells = _get_pointed_cell_position(mm.position, p_camera)
+			if hit_pos_in_cells != null:
+				_brush_decal.set_position(Vector3(hit_pos_in_cells.x, 0, hit_pos_in_cells.y))
+				
+				if _mouse_pressed:
+					if Input.is_mouse_button_pressed(BUTTON_LEFT):
+						_brush.paint_input(hit_pos_in_cells)
+						captured_event = true
 
-		# This is in case the data or textures change as the user edits the terrain,
-		# to keep the decal working without having to noodle around with nested signals
-		_brush_decal.update_visibility()
+			# This is in case the data or textures change as the user edits the terrain,
+			# to keep the decal working without having to noodle around with nested signals
+			_brush_decal.update_visibility()
 
 	return captured_event
 
+func _forward_water_input(p_camera: Camera, p_event: InputEvent) -> bool:
+	if _water == null || _water.get_data() == null:
+		return false
+
+	_water._edit_update_viewer_position(p_camera)
+	if _panel:
+		_panel.set_camera_transform(p_camera.global_transform)
+
+	return false
+
 
 func _process(delta: float):
-	if _node == null:
+	if _terrain == null:
 		return
 
-	var has_data = (_node.get_data() != null)
+	var has_data = (_terrain.get_data() != null)
 	
 	if _pending_paint_commit:
 		if has_data:
@@ -532,7 +605,7 @@ func _process(delta: float):
 func _paint_completed(changes: Dictionary):
 	var time_before = OS.get_ticks_msec()
 
-	var heightmap_data = _node.get_data()
+	var heightmap_data = _terrain.get_data()
 	assert(heightmap_data != null)
 	
 	var chunk_positions : Array = changes.chunk_positions
@@ -615,7 +688,12 @@ func _paint_completed(changes: Dictionary):
 
 func _terrain_exited_scene():
 	_logger.debug("HTerrain exited the scene")
-	edit(null)
+	_release_terrain()
+
+
+func _water_exited_scene():
+	_logger.debug("HTerrainWater exited the scene")
+	_release_water()
 
 
 func _menu_item_selected(id: int):
@@ -629,9 +707,9 @@ func _menu_item_selected(id: int):
 			_generator_dialog.popup_centered()
 		
 		MENU_BAKE_GLOBALMAP:
-			var data = _node.get_data()
+			var data = _terrain.get_data()
 			if data != null:
-				_globalmap_baker.bake(_node)
+				_globalmap_baker.bake(_terrain)
 		
 		MENU_RESIZE:
 			_resize_dialog.popup_centered()
@@ -653,14 +731,14 @@ func _menu_item_selected(id: int):
 			#    a Float Image directly, and make it so the data is in sync
 			#    (no CoW plz!!). It's trickier than 1) but almost free.
 			#
-			_node.update_collider()
+			_terrain.update_collider()
 		
 		MENU_GENERATE_MESH:
-			if _node != null and _node.get_data() != null:
+			if _terrain != null and _terrain.get_data() != null:
 				_generate_mesh_dialog.popup_centered()
 		
 		MENU_EXPORT_HEIGHTMAP:
-			if _node != null and _node.get_data() != null:
+			if _terrain != null and _terrain.get_data() != null:
 				_export_image_dialog.popup_centered()
 		
 		MENU_LOOKDEV:
@@ -677,9 +755,9 @@ func _menu_item_selected(id: int):
 func _on_lookdev_menu_about_to_show():
 	_lookdev_menu.clear()
 	_lookdev_menu.add_check_item("Disabled")
-	_lookdev_menu.set_item_checked(0, not _node.is_lookdev_enabled())
+	_lookdev_menu.set_item_checked(0, not _terrain.is_lookdev_enabled())
 	_lookdev_menu.add_separator()
-	var terrain_data : HTerrainData = _node.get_data()
+	var terrain_data : HTerrainData = _terrain.get_data()
 	if terrain_data == null:
 		_lookdev_menu.add_item("No terrain data")
 		_lookdev_menu.set_item_disabled(0, true)
@@ -699,13 +777,13 @@ func _on_lookdev_menu_about_to_show():
 func _on_lookdev_menu_id_pressed(id: int):
 	var meta = _lookdev_menu.get_item_metadata(id)
 	if meta == null:
-		_node.set_lookdev_enabled(false)
+		_terrain.set_lookdev_enabled(false)
 	else:
-		_node.set_lookdev_enabled(true)
-		var data : HTerrainData = _node.get_data()
+		_terrain.set_lookdev_enabled(true)
+		var data : HTerrainData = _terrain.get_data()
 		var map_texture = data.get_texture(meta.map_type, meta.map_index)
-		_node.set_lookdev_shader_param("u_map", map_texture)
-	_lookdev_menu.set_item_checked(0, not _node.is_lookdev_enabled())
+		_terrain.set_lookdev_shader_param("u_map", map_texture)
+	_lookdev_menu.set_item_checked(0, not _terrain.is_lookdev_enabled())
 
 
 func _on_mode_selected(mode: int):
@@ -754,24 +832,24 @@ func _terrain_progress_notified(info: Dictionary):
 
 
 func _on_GenerateMeshDialog_generate_selected(lod: int):
-	var data := _node.get_data()
+	var data := _terrain.get_data()
 	if data == null:
 		_logger.error("Terrain has no data, cannot generate mesh")
 		return
 	var heightmap := data.get_image(HTerrainData.CHANNEL_HEIGHT)
-	var scale := _node.map_scale
+	var scale := _terrain.map_scale
 	var mesh := HTerrainMesher.make_heightmap_mesh(heightmap, lod, scale, _logger)
 	var mi := MeshInstance.new()
-	mi.name = str(_node.name, "_FullMesh")
+	mi.name = str(_terrain.name, "_FullMesh")
 	mi.mesh = mesh
-	mi.transform = _node.transform
-	_node.get_parent().add_child(mi)
+	mi.transform = _terrain.transform
+	_terrain.get_parent().add_child(mi)
 	mi.set_owner(get_editor_interface().get_edited_scene_root())
 
 
 # TODO Workaround for https://github.com/Zylann/godot_heightmap_plugin/issues/101
 func _on_permanent_change_performed(message: String):
-	var data := _node.get_data()
+	var data := _terrain.get_data()
 	if data == null:
 		_logger.error("Terrain has no data, cannot mark it as changed")
 		return
@@ -787,7 +865,7 @@ func _on_brush_changed():
 
 
 func _on_Panel_edit_texture_pressed(index: int):
-	var ts := _node.get_texture_set()
+	var ts := _terrain.get_texture_set()
 	_texture_set_editor.set_texture_set(ts)
 	_texture_set_editor.select_slot(index)
 	_texture_set_editor.popup_centered()
@@ -802,7 +880,7 @@ func _on_Panel_import_textures_pressed():
 
 
 func _open_texture_set_import_editor():
-	var ts := _node.get_texture_set()
+	var ts := _terrain.get_texture_set()
 	_texture_set_import_editor.set_texture_set(ts)
 	_texture_set_import_editor.popup_centered()
 
@@ -857,7 +935,7 @@ func _debug_spawn_collider_indicators():
 
 
 func _spawn_vertical_bound_boxes():
-	var data = _node.get_data()
+	var data = _terrain.get_data()
 #	var sy = data._chunked_vertical_bounds_size_y
 #	var sx = data._chunked_vertical_bounds_size_x
 	var mat = SpatialMaterial.new()
@@ -877,10 +955,10 @@ func _spawn_vertical_bound_boxes():
 				(float(cx) + 0.5) * cs,
 				minv + mi.mesh.size.y * 0.5, 
 				(float(cy) + 0.5) * cs)
-			mi.translation *= _node.map_scale
-			mi.scale = _node.map_scale
+			mi.translation *= _terrain.map_scale
+			mi.scale = _terrain.map_scale
 			mi.material_override = mat
-			_node.add_child(mi)
+			_terrain.add_child(mi)
 			mi.owner = get_editor_interface().get_edited_scene_root()
 			
 	data._chunked_vertical_bounds.unlock()

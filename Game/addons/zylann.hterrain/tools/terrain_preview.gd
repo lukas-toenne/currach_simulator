@@ -56,7 +56,7 @@ func setup(heights_texture: Texture, normals_texture: Texture):
 	if _mesh_resolution != mesh_resolution or not (_mesh_instance.mesh is ArrayMesh):
 		_mesh_resolution = mesh_resolution
 		var mesh = HTerrainMesher.make_flat_chunk(
-			_mesh_resolution, _mesh_resolution, PREVIEW_MESH_LOD, 0)
+			_mesh_resolution, _mesh_resolution, PREVIEW_MESH_LOD, 0, false)
 		_mesh_instance.mesh = mesh
 		_default_distance = _mesh_instance.get_aabb().size.x
 		_distance = _default_distance

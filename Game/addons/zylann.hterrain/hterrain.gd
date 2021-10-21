@@ -775,7 +775,7 @@ func _reset_ground_chunks():
 		csize_x /= 2
 		csize_y /= 2
 
-	_mesher.configure(_chunk_size, _chunk_size, _lodder.get_lod_count())
+	_mesher.configure(_chunk_size, _chunk_size, _lodder.get_lod_count(), false)
 
 
 func _on_data_region_changed(min_x, min_y, size_x, size_y, channel):
