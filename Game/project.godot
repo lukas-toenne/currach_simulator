@@ -45,7 +45,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Currach Simulator"
-run/main_scene="res://menu.tscn"
+run/main_scene="res://assets/terrain_test/terrain_test.tscn"
 config/icon="res://icon.png"
 
 [autoload]
@@ -55,7 +55,7 @@ Menu="*res://scripts/menu.gd"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/gut/plugin.cfg", "res://addons/zylann.hterrain/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/zylann.hterrain/plugin.cfg" )
 
 [input]
 
