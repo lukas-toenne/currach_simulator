@@ -55,7 +55,7 @@ Menu="*res://scripts/menu.gd"
 
 [editor_plugins]
 
-enabled=PoolStringArray( "res://addons/zylann.hterrain/plugin.cfg" )
+enabled=PoolStringArray( "res://addons/waver/plugin.cfg", "res://addons/zylann.hterrain/plugin.cfg" )
 
 [input]
 

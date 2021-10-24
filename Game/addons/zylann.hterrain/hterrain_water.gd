@@ -8,8 +8,6 @@ const HTerrainData = preload("./hterrain_data.gd")
 const HTerrainChunk = preload("./hterrain_chunk.gd")
 const HTerrainChunkDebug = preload("./hterrain_chunk_debug.gd")
 const Util = preload("./util/util.gd")
-const HTerrainTextureSet = preload("./hterrain_texture_set.gd")
-const WaveBaker = preload("./util/wave_baker.gd")
 const Logger = preload("./util/logger.gd")
 
 const SHADER_DEEP_WATER = "DeepWater"
@@ -34,67 +32,15 @@ const SHADER_PARAM_INVERSE_WATER_TRANSFORM = "u_water_inverse_transform"
 const SHADER_PARAM_INVERSE_TERRAIN_TRANSFORM = "u_terrain_inverse_transform"
 const SHADER_PARAM_NORMAL_BASIS = "u_terrain_normal_basis"
 
-const SHADER_PARAM_WAVE_AMPLITUDE = "u_wave_amplitude"
-const SHADER_PARAM_WAVE_DENSITY = "u_wave_density"
-const SHADER_PARAM_WAVE_KERNEL_POS = "u_wave_kernel_pos"
-const SHADER_PARAM_WAVE_KERNEL_POS_DX = "u_wave_kernel_pos_dx"
-const SHADER_PARAM_WAVE_KERNEL_POS_DY = "u_wave_kernel_pos_dy"
-const SHADER_PARAM_WAVE_KERNEL_POS_DZ = "u_wave_kernel_pos_dz"
-const SHADER_PARAM_WAVE_KERNEL_PARTICLE = "u_wave_kernel_particle"
-
-const SHADER_PARAM_GROUND_PREFIX = "u_ground_" # + name + _0, _1, _2, _3...
-
-const SHADER_PARAM_TIME = "time"
-const SHADER_PARAM_DELTA_TIME = "delta_time"
-
 # Those parameters are filtered out in the inspector,
 # because they are not supposed to be set through it
 const _api_shader_params = {
 	"u_terrain_heightmap": true,
 	"u_terrain_normalmap": true,
-	"u_terrain_colormap": true,
-	"u_terrain_splatmap": true,
-	"u_terrain_splatmap_1": true,
-	"u_terrain_splatmap_2": true,
-	"u_terrain_splatmap_3": true,
-	"u_terrain_splat_index_map": true,
-	"u_terrain_splat_weight_map": true,
 
 	"u_terrain_inverse_transform": true,
 	"u_terrain_normal_basis": true,
-
-	"u_ground_albedo_bump_0": true,
-	"u_ground_albedo_bump_1": true,
-	"u_ground_albedo_bump_2": true,
-	"u_ground_albedo_bump_3": true,
-
-	"u_ground_normal_roughness_0": true,
-	"u_ground_normal_roughness_1": true,
-	"u_ground_normal_roughness_2": true,
-	"u_ground_normal_roughness_3": true,
-
-	"u_ground_albedo_bump_array": true,
-	"u_ground_normal_roughness_array": true
 }
-
-const _api_shader_ground_albedo_params = {
-	"u_ground_albedo_bump_0": true,
-	"u_ground_albedo_bump_1": true,
-	"u_ground_albedo_bump_2": true,
-	"u_ground_albedo_bump_3": true
-}
-
-const _ground_texture_array_shader_params = [
-	"u_ground_albedo_bump_array",
-	"u_ground_normal_roughness_array"
-]
-
-const _splatmap_shader_params = [
-	"u_terrain_splatmap",
-	"u_terrain_splatmap_1",
-	"u_terrain_splatmap_2",
-	"u_terrain_splatmap_3"
-]
 
 const MIN_CHUNK_SIZE = 16
 const MAX_CHUNK_SIZE = 64
@@ -102,18 +48,10 @@ const MAX_CHUNK_SIZE = 64
 const MIN_CHUNK_SUBDIV = 1
 const MAX_CHUNK_SUBDIV = 64
 
-# Same as HTerrainTextureSet.get_texture_type_name, used for shader parameter names.
-# Indexed by HTerrainTextureSet.TYPE_*
-const _ground_enum_to_name = [
-	"albedo_bump",
-	"normal_roughness"
-]
-
 const _DEBUG_AABB = false
 
 signal transform_changed(global_transform)
 
-export(float, 0.0, 1.0) var ambient_wind := 0.0 setget set_ambient_wind
 export(int, 2, 5) var lod_scale := 2.0 setget set_lod_scale, get_lod_scale
 
 # TODO Replace with `size` in world units?
@@ -128,15 +66,6 @@ var _material := ShaderMaterial.new()
 var _material_params_need_update := false
 
 var _render_layer_mask := 1
-
-# Actual number of textures supported by the shader currently selected
-var _ground_texture_count_cache = 0
-
-var _used_splatmaps_count_cache := 0
-var _is_using_indexed_splatmap := false
-
-var _texture_set := HTerrainTextureSet.new()
-var _texture_set_migration_textures = null
 
 var _data: HTerrainData = null
 
@@ -160,20 +89,6 @@ var _logger = Logger.get_for(self)
 var _lookdev_enabled := false
 var _lookdev_material : ShaderMaterial
 
-var _use_editor_time := true
-var _editor_time := 0.0
-var _editor_delta_time := 0.0
-
-var _wave_baker = WaveBaker.new()
-var _wave_kernel_pos: Texture = ImageTexture.new()
-var _wave_kernel_pos_dx: Texture = ImageTexture.new()
-var _wave_kernel_pos_dy: Texture = ImageTexture.new()
-var _wave_kernel_pos_dz: Texture = ImageTexture.new()
-var _wave_kernel_particle: Texture = ImageTexture.new()
-
-var _wave_amplitude := 0.1
-var _wave_density := 20.0
-
 
 func _init():
 	_logger.debug("Create HeightMap")
@@ -185,30 +100,9 @@ func _init():
 		funcref(self, "_cb_get_vertical_bounds"))
 
 	set_notify_transform(true)
-	
-	add_child(_wave_baker)
-	_wave_baker.connect("finished", self, "_update_wave_kernel")
-	_wave_baker.bake()
-
-#	# TODO Temporary!
-#	# This is a workaround for https://github.com/godotengine/godot/issues/24488
-#	_material.set_shader_param("u_ground_uv_scale", 20)
-#	_material.set_shader_param("u_ground_uv_scale_vec4", Color(20, 20, 20, 20))
-#	_material.set_shader_param("u_depth_blending", true)
 
 	_material.shader = load(_builtin_shaders[_shader_type].path)
 
-	_texture_set.connect("changed", self, "_on_texture_set_changed")
-
-
-func _update_wave_kernel():
-	var flags = Texture.FLAG_MIPMAPS | Texture.FLAG_FILTER;
-	_wave_kernel_pos.create_from_image(_wave_baker._images[_wave_baker.OutputType.POSITION], flags)
-	_wave_kernel_pos_dx.create_from_image(_wave_baker._images[_wave_baker.OutputType.POS_DX], flags)
-	_wave_kernel_pos_dy.create_from_image(_wave_baker._images[_wave_baker.OutputType.POS_DY], flags)
-	_wave_kernel_pos_dz.create_from_image(_wave_baker._images[_wave_baker.OutputType.POS_DZ], flags)
-	_wave_kernel_particle.create_from_image(_wave_baker._images[_wave_baker.OutputType.PARTICLE], flags)
-	_material_params_need_update = true
 
 func _get_property_list():
 	# A lot of properties had to be exported like this instead of using `export`,
@@ -270,40 +164,10 @@ func _get_property_list():
 			"hint_string": "Shader"
 		},
 		{
-			"name": "texture_set",
-			"type": TYPE_OBJECT,
-			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
-			"hint": PROPERTY_HINT_RESOURCE_TYPE,
-			"hint_string": "Resource"
-			# TODO Cannot properly hint the type of the resource in the inspector. 
-			# This triggers `ERROR: Cannot get class 'HTerrainTextureSet'`
-			# See https://github.com/godotengine/godot/pull/41264
-			#"hint_string": "HTerrainTextureSet"
-		},
-		{
 			"name": "render_layers",
 			"type": TYPE_INT,
 			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
 			"hint": PROPERTY_HINT_LAYERS_3D_RENDER
-		},
-		{
-			"name": "Waves",
-			"type": TYPE_NIL,
-			"usage": PROPERTY_USAGE_GROUP
-		},
-		{
-			"name": "wave_amplitude",
-			"type": TYPE_REAL,
-			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
-			"hint": PROPERTY_HINT_RANGE,
-			"hint_string": "0,1,or_greater",
-		},
-		{
-			"name": "wave_density",
-			"type": TYPE_REAL,
-			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
-			"hint": PROPERTY_HINT_RANGE,
-			"hint_string": "0,50,or_greater",
 		},
 		{
 			"name": "Debugging",
@@ -343,9 +207,6 @@ func _get(key: String):
 		else:
 			return _data
 
-	if key == "texture_set":
-		return get_texture_set()
-
 	elif key == "shader_type":
 		return get_shader_type()
 
@@ -365,15 +226,6 @@ func _get(key: String):
 	elif key == "render_layers":
 		return get_render_layer_mask()
 
-	elif key == "wave_amplitude":
-		return _wave_amplitude
-
-	elif key == "wave_density":
-		return _wave_density
-
-	elif key == "use_editor_time":
-		return _use_editor_time
-	
 
 func _set(key: String, value):
 	if key == "data_directory":
@@ -383,22 +235,6 @@ func _set(key: String, value):
 	# because we were also are forced to use _get_property_list...
 	elif key == "_terrain_data":
 		set_data(value)
-
-	elif key == "texture_set":
-		set_texture_set(value)
-
-	# Legacy, left for migration from 1.4
-	if key.begins_with("ground/"):
-		for ground_texture_type in HTerrainTextureSet.TYPE_COUNT:
-			var type_name = _ground_enum_to_name[ground_texture_type]
-			if key.begins_with(str("ground/", type_name, "_")):
-				var i = key.right(len(key) - 1).to_int()
-				if _texture_set_migration_textures == null:
-					_texture_set_migration_textures = []
-				while i >= len(_texture_set_migration_textures):
-					_texture_set_migration_textures.append([null, null])
-				var texs = _texture_set_migration_textures[i]
-				texs[ground_texture_type] = value
 
 	elif key == "shader_type":
 		set_shader_type(value)
@@ -418,43 +254,6 @@ func _set(key: String, value):
 
 	elif key == "render_layers":
 		return set_render_layer_mask(value)
-
-	elif key == "wave_amplitude":
-		_wave_amplitude = value
-		_material_params_need_update = true
-
-	elif key == "wave_density":
-		_wave_density = value
-		_material_params_need_update = true
-
-	elif key == "use_editor_time":
-		if is_inside_tree() and Engine.is_editor_hint():
-			_use_editor_time = value
-
-
-func get_texture_set() -> HTerrainTextureSet:
-	return _texture_set
-
-
-func set_texture_set(new_set: HTerrainTextureSet):
-	if _texture_set == new_set:
-		return
-
-	if _texture_set != null:
-		# TODO This causes `ERROR: Nonexistent signal 'changed' in [Resource:36653]` for some reason
-		_texture_set.disconnect("changed", self, "_on_texture_set_changed")
-
-	_texture_set = new_set
-
-	if _texture_set != null:
-		_texture_set.connect("changed", self, "_on_texture_set_changed")
-
-	_material_params_need_update = true
-
-
-func _on_texture_set_changed():
-	_material_params_need_update = true
-	Util.update_configuration_warning(self, false)
 
 
 func get_shader_param(param_name: String):
@@ -578,23 +377,6 @@ func _notification(what: int):
 
 		NOTIFICATION_ENTER_WORLD:
 			_logger.debug("Enter world")
-
-			if _texture_set_migration_textures != null \
-			and _texture_set.get_slots_count() == 0:
-				# Convert from 1.4 textures properties to HTerrainTextureSet
-				# TODO Unfortunately this might not always work,
-				# once again because Godot wants the editor's UndoRedo to have modified the
-				# resource for it to be saved... which sucks, sucks, and sucks.
-				# I'll never say it enough.
-				_texture_set.set_mode(HTerrainTextureSet.MODE_TEXTURES)
-				while _texture_set.get_slots_count() < len(_texture_set_migration_textures):
-					_texture_set.insert_slot(-1)
-				for slot_index in len(_texture_set_migration_textures):
-					var texs = _texture_set_migration_textures[slot_index]
-					for type in len(texs):
-						_texture_set.set_texture(slot_index, type, texs[type])
-				_texture_set_migration_textures = null
-
 			_for_all_chunks(EnterWorldAction.new(get_world()))
 
 		NOTIFICATION_EXIT_WORLD:
@@ -836,21 +618,10 @@ func _on_custom_shader_changed():
 func _update_material_params():
 	assert(_material != null)
 	_logger.debug("Updating terrain material params")
-		
-	var terrain_textures := {}
-	
+
 	var lookdev_material : ShaderMaterial
 	if _lookdev_enabled:
 		lookdev_material = _get_lookdev_material()
-
-	# TODO Only get textures the shader supports
-
-	if has_data():
-		for map_type in HTerrainData.CHANNEL_COUNT:
-			var count := _data.get_map_count(map_type)
-			for i in count:
-				var param_name: String = HTerrainData.get_map_shader_param_name(map_type, i)
-				terrain_textures[param_name] = _data.get_texture(map_type, i)
 
 	# Set all parameters from the terrain sytem.
 
@@ -864,81 +635,10 @@ func _update_material_params():
 		var normal_basis = gt.basis.inverse().transposed()
 		_material.set_shader_param(SHADER_PARAM_NORMAL_BASIS, normal_basis)
 		
-		_material.set_shader_param(SHADER_PARAM_WAVE_AMPLITUDE, _wave_amplitude)
-		_material.set_shader_param(SHADER_PARAM_WAVE_DENSITY, _wave_density)
-		_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS, _wave_kernel_pos)
-		_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DX, _wave_kernel_pos_dx)
-		_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DY, _wave_kernel_pos_dy)
-		_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DZ, _wave_kernel_pos_dz)
-		_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_PARTICLE, _wave_kernel_particle)
-		
 		if lookdev_material != null:
 			lookdev_material.set_shader_param(SHADER_PARAM_INVERSE_WATER_TRANSFORM, t)
 			lookdev_material.set_shader_param(SHADER_PARAM_INVERSE_TERRAIN_TRANSFORM, t.scaled(Vector3.ONE / _chunk_subdiv))
 			lookdev_material.set_shader_param(SHADER_PARAM_NORMAL_BASIS, normal_basis)
-
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_AMPLITUDE, _wave_amplitude)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_DENSITY, _wave_density)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS, _wave_kernel_pos)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DX, _wave_kernel_pos_dx)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DY, _wave_kernel_pos_dy)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DZ, _wave_kernel_pos_dz)
-			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_PARTICLE, _wave_kernel_particle)
-	
-	for param_name in terrain_textures:
-		var tex = terrain_textures[param_name]
-		_material.set_shader_param(param_name, tex)
-		if lookdev_material != null:
-			lookdev_material.set_shader_param(param_name, tex)
-
-#	if _texture_set != null:
-#		match _texture_set.get_mode():
-#			HTerrainTextureSet.MODE_TEXTURES:
-#				var slots_count := _texture_set.get_slots_count()
-#				for type in HTerrainTextureSet.TYPE_COUNT:
-#					for slot_index in slots_count:
-#						var texture := _texture_set.get_texture(slot_index, type)
-#						var shader_param := _get_ground_texture_shader_param_name(type, slot_index)
-#						_material.set_shader_param(shader_param, texture)
-
-#			HTerrainTextureSet.MODE_TEXTURE_ARRAYS:
-#				for type in HTerrainTextureSet.TYPE_COUNT:
-#					var texture_array := _texture_set.get_texture_array(type)
-#					var shader_params := _get_ground_texture_array_shader_param_name(type)
-#					_material.set_shader_param(shader_params, texture_array)
-
-	if _use_editor_time:
-		_material.set_shader_param(SHADER_PARAM_TIME, _editor_time)
-		_material.set_shader_param(SHADER_PARAM_DELTA_TIME, _editor_delta_time)
-
-#	_is_using_indexed_splatmap = false
-#	_used_splatmaps_count_cache = 0
-#
-#	var shader := _material.shader
-#	if shader != null:
-#		var param_list := VisualServer.shader_get_param_list(shader.get_rid())
-#		_ground_texture_count_cache = 0
-#		for p in param_list:
-#			if _api_shader_ground_albedo_params.has(p.name):
-#				_ground_texture_count_cache += 1
-#			elif p.name == "u_terrain_splat_index_map":
-#				_is_using_indexed_splatmap = true
-#			elif p.name in _splatmap_shader_params:
-#				_used_splatmaps_count_cache += 1
-
-
-# Gets how many splatmaps the current shader is using.
-# This will only be valid once the material has been updated internally.
-# (for example it won't be valid before the terrain is added to the SceneTree)
-func get_used_splatmaps_count() -> int:
-	return _used_splatmaps_count_cache
-
-
-# Tells if the current shader is using a splatmap type based on indexes and weights.
-# This will only be valid once the material has been updated internally.
-# (for example it won't be valid before the terrain is added to the SceneTree)
-func is_using_indexed_splatmap() -> bool:
-	return _is_using_indexed_splatmap
 
 
 static func _get_common_shader_params(shader1: Shader, shader2: Shader) -> Array:
@@ -1037,12 +737,7 @@ func _update_viewer_position(camera: Camera):
 
 
 func _process(delta: float):
-	if Engine.is_editor_hint():
-		# Update time to animate waves in the editor
-		if _use_editor_time:
-			_editor_time += delta
-			_material_params_need_update = true
-	else:
+	if !Engine.is_editor_hint():
 		# In editor, the camera is only accessible from an editor plugin
 		_update_viewer_position(null)
 
@@ -1148,15 +843,35 @@ func _update_chunk(chunk: HTerrainChunk, lod: int, p_visible: bool):
 	# Because chunks are rendered using vertex shader displacement,
 	# the renderer cannot rely on the mesh's AABB.
 	var s := _chunk_size << lod
-	var aabb := _data.get_region_aabb(chunk.cell_origin_x, chunk.cell_origin_y, s, s)
-	aabb.position.x = 0
-	aabb.position.y = -_wave_amplitude * _wave_density
-	aabb.position.z = 0
-	aabb.size.y = 2.0 * _wave_amplitude * _wave_density
+	var aabb := _get_region_aabb(chunk.cell_origin_x, chunk.cell_origin_y, lod)
 	chunk.set_aabb(aabb)
 
 	chunk.set_visible(p_visible)
 	chunk.set_pending_update(false)
+
+
+func _get_region_aabb(cpos_x: int, cpos_y: int, lod: int) -> AABB:
+	assert(has_data())
+	var s := _chunk_size << lod
+	var aabb := _data.get_region_aabb(cpos_x, cpos_y, s, s)
+	aabb.position.x = 0
+	aabb.position.z = 0
+	return aabb
+
+
+func _get_vertical_bounds(cpos_x: int, cpos_y: int, lod: int) -> Vector2:
+	var chunk_size := _chunk_size * _lodder.get_lod_size(lod)
+	var origin_in_cells_x := cpos_x * chunk_size
+	var origin_in_cells_y := cpos_y * chunk_size
+	# This is a hack for speed,
+	# because the proper algorithm appears to be too slow for GDScript.
+	# It should be good enough for most common cases, unless you have super-sharp cliffs.
+	return _data.get_point_aabb(
+		origin_in_cells_x + chunk_size / 2, 
+		origin_in_cells_y + chunk_size / 2)
+#	var aabb = _data.get_region_aabb(
+#		origin_in_cells_x, origin_in_cells_y, chunk_size, chunk_size)
+#	return Vector2(aabb.position.y, aabb.end.y)
 
 
 func _add_chunk_update(chunk: HTerrainChunk, pos_x: int, pos_y: int, lod: int):
@@ -1256,7 +971,7 @@ func _cb_recycle_chunk(chunk: HTerrainChunk, cx: int, cy: int, lod: int):
 
 
 func _cb_get_vertical_bounds(cpos_x: int, cpos_y: int, lod: int):
-	return _wave_amplitude * _wave_density * Vector2(-1.0, 1.0)
+	return _get_vertical_bounds(cpos_x, cpos_y, lod)
 
 
 static func _get_height_or_default(im: Image, pos_x: int, pos_y: int):
@@ -1281,115 +996,6 @@ func cell_raycast(origin_world: Vector3, dir_world: Vector3, max_distance: float
 	return _data.cell_raycast(origin, dir, max_distance)
 
 
-static func _get_ground_texture_shader_param_name(ground_texture_type: int, slot: int) -> String:
-	assert(typeof(slot) == TYPE_INT and slot >= 0)
-	_check_ground_texture_type(ground_texture_type)
-	return str(SHADER_PARAM_GROUND_PREFIX, 
-		_ground_enum_to_name[ground_texture_type], "_", slot)
-
-
-# @obsolete
-func get_ground_texture(slot: int, type: int) -> Texture:
-	_logger.error(
-		"HTerrain.get_ground_texture is obsolete, " +
-		"use HTerrain.get_texture_set().get_texture(slot, type) instead")
-	var shader_param = _get_ground_texture_shader_param_name(type, slot)
-	return _material.get_shader_param(shader_param)
-
-
-# @obsolete
-func set_ground_texture(slot: int, type: int, tex: Texture):
-	_logger.error(
-		"HTerrain.set_ground_texture is obsolete, " +
-		"use HTerrain.get_texture_set().set_texture(slot, type, texture) instead")
-	assert(tex == null or tex is Texture)
-	var shader_param = _get_ground_texture_shader_param_name(type, slot)
-	_material.set_shader_param(shader_param, tex)
-
-
-func _get_ground_texture_array_shader_param_name(type: int) -> String:
-	return _ground_texture_array_shader_params[type] as String
-
-
-# @obsolete
-func get_ground_texture_array(type: int) -> TextureArray:
-	_logger.error(
-		"HTerrain.get_ground_texture_array is obsolete, " +
-		"use HTerrain.get_texture_set().get_texture_array(type) instead")
-	var param_name = _get_ground_texture_array_shader_param_name(type)
-	return _material.get_shader_param(param_name)
-
-
-# @obsolete
-func set_ground_texture_array(type: int, texture_array: TextureArray):
-	_logger.error(
-		"HTerrain.set_ground_texture_array is obsolete, " +
-		"use HTerrain.get_texture_set().set_texture_array(type, texarray) instead")
-	var param_name = _get_ground_texture_array_shader_param_name(type)
-	_material.set_shader_param(param_name, texture_array)
-
-
-func _internal_add_detail_layer(layer):
-	assert(_detail_layers.find(layer) == -1)
-	_detail_layers.append(layer)
-
-
-func _internal_remove_detail_layer(layer):
-	assert(_detail_layers.find(layer) != -1)
-	_detail_layers.erase(layer)
-
-
-# Returns a list copy of all child HTerrainDetailLayer nodes.
-# The order in that list has no relevance.
-func get_detail_layers() -> Array:
-	return _detail_layers.duplicate()
-
-
-# @obsolete
-func set_detail_texture(slot, tex):
-	_logger.error(
-		"HTerrain.set_detail_texture is obsolete, use HTerrainDetailLayer.texture instead")
-
-
-# @obsolete
-func get_detail_texture(slot):
-	_logger.error(
-		"HTerrain.get_detail_texture is obsolete, use HTerrainDetailLayer.texture instead")
-
-
-func set_ambient_wind(amplitude: float):
-	if ambient_wind == amplitude:
-		return
-	ambient_wind = amplitude
-	for layer in _detail_layers:
-		layer.update_material()
-
-
-static func _check_ground_texture_type(ground_texture_type: int):
-	assert(typeof(ground_texture_type) == TYPE_INT)
-	assert(ground_texture_type >= 0 and ground_texture_type < HTerrainTextureSet.TYPE_COUNT)
-
-
-# @obsolete
-func get_ground_texture_slot_count() -> int:
-	_logger.error("get_ground_texture_slot_count is obsolete, " \
-		+ "use get_cached_ground_texture_slot_count instead")
-	return get_max_ground_texture_slot_count()
-
-# @obsolete
-func get_max_ground_texture_slot_count() -> int:
-	_logger.error("get_ground_texture_slot_count is obsolete, " \
-		+ "use get_cached_ground_texture_slot_count instead")
-	return get_cached_ground_texture_slot_count()
-
-
-# This is a cached value based on the actual number of texture parameters
-# in the current shader. It won't update immediately when the shader changes,
-# only after a frame. This is mostly used in the editor.
-func get_cached_ground_texture_slot_count() -> int:
-	return _ground_texture_count_cache
-
-
 func _edit_debug_draw(ci: CanvasItem):
 	_lodder.debug_draw_tree(ci)
 
@@ -1398,10 +1004,6 @@ func _get_configuration_warning():
 	if _data == null:
 		return "The terrain is missing data.\n" \
 			+ "Select the `Data Directory` property in the inspector to assign it."
-
-	if _texture_set == null:
-		return "The terrain does not have a HTerrainTextureSet assigned\n" \
-			+ "This is required if you want to paint textures on it."
 
 	# TODO Warn about unused data maps, have a tool to clean them up
 	return ""

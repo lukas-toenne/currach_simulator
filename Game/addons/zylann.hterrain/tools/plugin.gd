@@ -331,6 +331,7 @@ func _exit_tree():
 	# TODO https://github.com/godotengine/godot/issues/6254#issuecomment-246139694
 	# This was supposed to be automatic, but was never implemented it seems...
 	remove_custom_type("HTerrain")
+	remove_custom_type("HTerrainWater")
 	remove_custom_type("HTerrainDetailLayer")
 	remove_custom_type("HTerrainData")
 	remove_custom_type("HTerrainTextureSet")
