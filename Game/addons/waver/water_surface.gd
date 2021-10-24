@@ -37,7 +37,7 @@ func _get_property_list():
 		{
 			"name": "Waves",
 			"type": TYPE_NIL,
-			"usage": PROPERTY_USAGE_GROUP
+			"usage": PROPERTY_USAGE_CATEGORY
 		},
 		{
 			"name": "wave_amplitude",
@@ -53,18 +53,19 @@ func _get_property_list():
 			"hint": PROPERTY_HINT_RANGE,
 			"hint_string": "0,50,or_greater",
 		},
+		{
+			"name": "Debugging",
+			"type": TYPE_NIL,
+			"usage": PROPERTY_USAGE_GROUP
+		},
+		{
+			"name": "use_editor_time",
+			"type": TYPE_BOOL,
+			"usage": PROPERTY_USAGE_EDITOR,
+		},
 	]
-
-	if _material.shader != null:
-		var shader_params := VisualServer.shader_get_param_list(_material.shader.get_rid())
-		for p in shader_params:
-			if _api_shader_params.has(p.name):
-				continue
-			var cp := {}
-			for k in p:
-				cp[k] = p[k]
-			cp.name = str("shader_params/", p.name)
-			props.append(cp)
+	
+#	props.append_array(._get_property_list())
 
 	return props
 

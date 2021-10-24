@@ -109,6 +109,11 @@ func _get_property_list():
 	# because Godot 3 does not support easy categorization and lacks some hints
 	var props = [
 		{
+			"name": "Terrain",
+			"type": TYPE_NIL,
+			"usage": PROPERTY_USAGE_CATEGORY
+		},
+		{
 			# Terrain data is exposed only as a path in the editor,
 			# because it can only be saved if it has a directory selected.
 			# That property is not used in scene saving (data is instead).
@@ -168,16 +173,6 @@ func _get_property_list():
 			"type": TYPE_INT,
 			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
 			"hint": PROPERTY_HINT_LAYERS_3D_RENDER
-		},
-		{
-			"name": "Debugging",
-			"type": TYPE_NIL,
-			"usage": PROPERTY_USAGE_GROUP
-		},
-		{
-			"name": "use_editor_time",
-			"type": TYPE_BOOL,
-			"usage": PROPERTY_USAGE_EDITOR,
 		},
 	]
 
