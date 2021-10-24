@@ -29,6 +29,19 @@ var _use_editor_time := true
 var _editor_time := 0.0
 var _editor_delta_time := 0.0
 
+# Those parameters are filtered out in the inspector,
+# because they are not supposed to be set through it
+const _wave_api_shader_params = {
+	"u_wave_amplitude": true,
+	"u_wave_density": true,
+
+	"u_wave_kernel_pos": true,
+	"u_wave_kernel_pos_dx": true,
+	"u_wave_kernel_pos_y": true,
+	"u_wave_kernel_pos_dz": true,
+	"u_wave_kernel_particle": true,
+}
+
 
 func _get_property_list():
 	# A lot of properties had to be exported like this instead of using `export`,
@@ -64,14 +77,20 @@ func _get_property_list():
 			"usage": PROPERTY_USAGE_EDITOR,
 		},
 	]
-	
-#	props.append_array(._get_property_list())
 
 	return props
 
 
+func _ignore_shader_param(name: String) -> bool:
+	return ._ignore_shader_param(name) || _wave_api_shader_params.has(name)
+
+
 func _get(key: String):
-	if key == "wave_amplitude":
+	if key.begins_with("shader_params/"):
+		var param_name = key.right(len("shader_params/"))
+		return get_shader_param(param_name)
+
+	elif key == "wave_amplitude":
 		return _wave_amplitude
 
 	elif key == "wave_density":
@@ -82,7 +101,11 @@ func _get(key: String):
 	
 
 func _set(key: String, value):
-	if key == "wave_amplitude":
+	if key.begins_with("shader_params/"):
+		var param_name = key.right(len("shader_params/"))
+		set_shader_param(param_name, value)
+
+	elif key == "wave_amplitude":
 		_wave_amplitude = value
 		_material_params_need_update = true
 

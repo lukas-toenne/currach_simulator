@@ -15,17 +15,6 @@ const SHADER_CUSTOM = "Custom"
 
 const MIN_MAP_SCALE = 0.01
 
-const _SHADER_TYPE_HINT_STRING = str(
-	"DeepWater", ",",
-	"Custom"
-)
-
-const _builtin_shaders = {
-	SHADER_DEEP_WATER: {
-		path = "res://addons/zylann.hterrain/shaders/deep_water.shader",
-	},
-}
-
 const _LOOKDEV_SHADER_PATH = "res://addons/zylann.hterrain/shaders/lookdev.shader"
 
 const SHADER_PARAM_INVERSE_WATER_TRANSFORM = "u_water_inverse_transform"
@@ -61,7 +50,6 @@ export(int, 2, 5) var lod_scale := 2.0 setget set_lod_scale, get_lod_scale
 export var map_scale := Vector3(1, 1, 1) setget set_map_scale
 
 var _custom_shader : Shader = null
-var _shader_type := SHADER_DEEP_WATER
 var _material := ShaderMaterial.new()
 var _material_params_need_update := false
 
@@ -101,7 +89,7 @@ func _init():
 
 	set_notify_transform(true)
 
-	_material.shader = load(_builtin_shaders[_shader_type].path)
+	_material.shader = _custom_shader
 
 
 func _get_property_list():
@@ -155,13 +143,6 @@ func _get_property_list():
 			"usage": PROPERTY_USAGE_GROUP
 		},
 		{
-			"name": "shader_type",
-			"type": TYPE_STRING,
-			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
-			"hint": PROPERTY_HINT_ENUM,
-			"hint_string": _SHADER_TYPE_HINT_STRING
-		},
-		{
 			"name": "custom_shader",
 			"type": TYPE_OBJECT,
 			"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_STORAGE,
@@ -179,7 +160,7 @@ func _get_property_list():
 	if _material.shader != null:
 		var shader_params := VisualServer.shader_get_param_list(_material.shader.get_rid())
 		for p in shader_params:
-			if _api_shader_params.has(p.name):
+			if _ignore_shader_param(p.name):
 				continue
 			var cp := {}
 			for k in p:
@@ -188,6 +169,10 @@ func _get_property_list():
 			props.append(cp)
 
 	return props
+
+
+func _ignore_shader_param(name: String) -> bool:
+	return _api_shader_params.has(name)
 
 
 func _get(key: String):
@@ -201,9 +186,6 @@ func _get(key: String):
 			return null
 		else:
 			return _data
-
-	elif key == "shader_type":
-		return get_shader_type()
 
 	elif key == "custom_shader":
 		return get_custom_shader()
@@ -230,9 +212,6 @@ func _set(key: String, value):
 	# because we were also are forced to use _get_property_list...
 	elif key == "_terrain_data":
 		set_data(value)
-
-	elif key == "shader_type":
-		set_shader_type(value)
 
 	elif key == "custom_shader":
 		set_custom_shader(value)
@@ -550,26 +529,6 @@ func _on_data_map_removed(type: int, index: int):
 	Util.update_configuration_warning(self, true)
 
 
-func get_shader_type() -> String:
-	return _shader_type
-
-
-func set_shader_type(type: String):
-	if type == _shader_type:
-		return
-	_shader_type = type
-	
-	if _shader_type == SHADER_CUSTOM:
-		_material.shader = _custom_shader
-	else:
-		_material.shader = load(_builtin_shaders[_shader_type].path)
-
-	_material_params_need_update = true
-	
-	if Engine.editor_hint:
-		property_list_changed_notify()
-
-
 func get_custom_shader() -> Shader:
 	return _custom_shader
 
@@ -581,26 +540,12 @@ func set_custom_shader(shader: Shader):
 	if _custom_shader != null:
 		_custom_shader.disconnect("changed", self, "_on_custom_shader_changed")
 
-	if Engine.is_editor_hint() and shader != null and is_inside_tree():
-		# When the new shader is empty, allow to fork from the previous shader
-		if shader.get_code().empty():
-			_logger.debug("Populating custom shader with default code")
-			var src := _material.shader
-			if src == null:
-				src = load(_builtin_shaders[SHADER_DEEP_WATER].path)
-			shader.set_code(src.code)
-			# TODO If code isn't empty,
-			# verify existing parameters and issue a warning if important ones are missing
-
 	_custom_shader = shader
 
-	if _shader_type == SHADER_CUSTOM:
-		_material.shader = _custom_shader
-
+	_material.shader = _custom_shader
 	if _custom_shader != null:
 		_custom_shader.connect("changed", self, "_on_custom_shader_changed")
-		if _shader_type == SHADER_CUSTOM:
-			_material_params_need_update = true
+		_material_params_need_update = true
 	
 	if Engine.editor_hint:
 		property_list_changed_notify()
