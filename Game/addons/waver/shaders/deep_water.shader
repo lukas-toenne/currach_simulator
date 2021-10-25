@@ -207,7 +207,7 @@ float rayleigh_sample(float mean, float u)
 	return mean * sqrt(max(-4.0 / PI * log(1.0 - u), 0.0));
 }
 
-void wave_sample(vec2 cell, int seed, float t, vec3 terrain_normal, out float amp, out vec2 start, out float dir, out float lambda, out float alpha, out vec3 color)
+void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, out float dir, out float lambda, out float alpha, out vec3 color)
 {
 	vec3 rand1 = hash(vec3(float(seed), cell.y, cell.x)) * 0.5 + 0.5;
 	float phase_shift = rand1.x;
@@ -240,6 +240,23 @@ void wave_sample(vec2 cell, int seed, float t, vec3 terrain_normal, out float am
 //	vec4 flow = textureLod(flow_map, flow_uv, 0.0);
 //	dir = 6.0 * PI * flow.r;
 
+	vec2 terrain_cell_coords = (u_terrain_inverse_transform * vec4(start.x, 0, start.y, 1)).xz;
+	// Must add a half-offset so that we sample the center of pixels,
+	// otherwise bilinear filtering of the textures will give us mixed results (#183)
+	terrain_cell_coords += vec2(0.5);
+	// Normalized UV
+	vec2 terrain_uv = terrain_cell_coords / vec2(textureSize(u_terrain_heightmap, 0));
+	// Height displacement
+	float terrain_height = texture(u_terrain_heightmap, terrain_uv).r;
+
+	// TODO choose LOD for terrain normal texture such that it averages over the whole wave cell,
+	// i.e. LOD = ceil(log2(wave_cell_size / terrain_cell_size)),
+	// where terrain_cell_size = terrain_transform * vec3(1)
+	// Ideally the wave cell size should be a multiple of the terrain cell size!
+
+	// Need to use u_terrain_normal_basis to handle scaling.
+	vec3 terrain_normal = u_terrain_normal_basis * unpack_normal(texture(u_terrain_normalmap, terrain_uv));
+
 	float terrain_dir = atan(-terrain_normal.z, -terrain_normal.x);
 	dir = terrain_dir;
 
@@ -271,23 +288,6 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 	
 	float cx = floor(wpos.x / cell_size());
 	float cy = floor(wpos.z / cell_size());
-
-	vec2 terrain_cell_coords = (u_terrain_inverse_transform * wpos).xz;
-	// Must add a half-offset so that we sample the center of pixels,
-	// otherwise bilinear filtering of the textures will give us mixed results (#183)
-	terrain_cell_coords += vec2(0.5);
-	// Normalized UV
-	vec2 terrain_uv = terrain_cell_coords / vec2(textureSize(u_terrain_heightmap, 0));
-	// Height displacement
-	float terrain_height = texture(u_terrain_heightmap, terrain_uv).r;
-
-	// TODO choose LOD for terrain normal texture such that it averages over the whole wave cell,
-	// i.e. LOD = ceil(log2(wave_cell_size / terrain_cell_size)),
-	// where terrain_cell_size = terrain_transform * vec3(1)
-	// Ideally the wave cell size should be a multiple of the terrain cell size!
-
-	// Need to use u_terrain_normal_basis to handle scaling.
-	vec3 terrain_normal = u_terrain_normal_basis * unpack_normal(texture(u_terrain_normalmap, terrain_uv));
 	
 	int samples = int(u_wave_density);
 	for (int j = -1; j <= 1; ++j)
@@ -304,7 +304,7 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 				float lambda;
 				float alpha;
 				vec3 color;
-				wave_sample(cell, k, t, terrain_normal, amp, start, dir, lambda, alpha, color);
+				wave_sample(cell, k, t, amp, start, dir, lambda, alpha, color);
 
 				vec2 travel = vec2(cos(dir), sin(dir)) * travel_dist;
 				vec2 center = start + alpha * travel;
@@ -333,7 +333,7 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 
 				ivec2 tex_size = textureSize(u_wave_kernel_particle, 0);
 //				ivec2 tex_size_sq = tex_size * tex_size;
-				ivec2 tex_size_sq = ivec2(1) * 8;
+				ivec2 tex_size_sq = ivec2(1);
 				// L2,1 norm used for LOD
 				float ker_max = max(dot(ker_duv[0], ker_duv[0]) * float(tex_size_sq.x), dot(ker_duv[1], ker_duv[1]) * float(tex_size_sq.y));
 				float ker_lod = 0.5 * log2(ker_max);
