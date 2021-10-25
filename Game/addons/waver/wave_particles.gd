@@ -7,6 +7,8 @@ extends Node
 
 const WaveParticleShader = preload("./shaders/wave_particles.shader")
 
+var _debug_mesh = null
+
 class Stage:
 	var viewport: Viewport = null
 	var rect: ColorRect = null
@@ -20,46 +22,56 @@ class Stage:
 	func _get_size():
 		return viewport.size
 
-	func _init(shader: Shader):
+	func _init(shader: Shader, clear: bool):
 		var viewport_size = Vector2(2, 2)
 
 		viewport = Viewport.new()
-		viewport.size = Vector2(viewport_size + 1, viewport_size + 1)
+		viewport.size = viewport_size
 		viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
-		viewport.render_target_clear_mode = Viewport.CLEAR_MODE_ONLY_NEXT_FRAME
+		viewport.render_target_clear_mode = Viewport.CLEAR_MODE_ONLY_NEXT_FRAME if clear else Viewport.CLEAR_MODE_NEVER
 		viewport.render_target_v_flip = true
 		viewport.world = World.new()
 		viewport.own_world = true
 		viewport.debug_draw = Viewport.DEBUG_DRAW_UNSHADED
-		viewport.usage = Viewport.USAGE_2D_NO_SAMPLING
+		# Needs to be 3D_NO_EFFECTS usage and hdr=true, to enable full range float output
+		viewport.usage = Viewport.USAGE_3D_NO_EFFECTS
+		viewport.hdr = true
 		# Disable sRGB transform on output colors
 		viewport.keep_3d_linear = true
 
 		rect = ColorRect.new()
 		rect.anchor_left = 0
 		rect.anchor_top = 1
-		rect.anchor_right = 0
+		rect.anchor_right = 1
 		rect.anchor_bottom = 0
 		rect.margin_left = 0
 		rect.margin_top = 0
 		rect.margin_right = 0
 		rect.margin_bottom = 0
-		rect.rect_size = viewport.size
+		rect.rect_size = viewport_size
 		rect.material = ShaderMaterial.new()
 		rect.material.shader = shader
 		
 		viewport.add_child(rect)
 	
-	func _notification(what):
-		if what == NOTIFICATION_PREDELETE:
-			viewport.queue_free()
+#	func _notification(what):
+#		if what == NOTIFICATION_PREDELETE:
+#			viewport.queue_free()
 
 var _particle_sim: Stage = null
 
 
 func _ready():
-	_particle_sim = Stage.new(WaveParticleShader)
+	_particle_sim = Stage.new(WaveParticleShader, true)
 	add_child(_particle_sim.viewport)
+	
+	# !!! XXX Small viewport sizes crash Godot !!!
+	# https://github.com/godotengine/godot/issues/24702
+	_particle_sim.size = Vector2(100, 100)
+
+#	_debug_mesh = MeshInstance.new()
+#	add_child(_debug_mesh)
+#	_debug_mesh.mesh = load()
 
 
 #func bake():

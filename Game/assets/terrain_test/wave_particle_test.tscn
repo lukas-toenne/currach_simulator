@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=2]
+
+[ext_resource path="res://assets/terrain_test/wave_particle_test.gd" type="Script" id=2]
+[ext_resource path="res://assets/terrain_test/show_viewport_tex.gdshader" type="Shader" id=3]
+[ext_resource path="res://addons/waver/wave_particles.gd" type="Script" id=4]
+
+[sub_resource type="ShaderMaterial" id=1]
+resource_local_to_scene = true
+shader = ExtResource( 3 )
+
+[node name="Node" type="Node2D"]
+position = Vector2( 8.73071, 9.12756 )
+script = ExtResource( 2 )
+
+[node name="ColorRect" type="ColorRect" parent="."]
+material = SubResource( 1 )
+margin_left = 47.4897
+margin_top = 85.3228
+margin_right = 104.49
+margin_bottom = 134.323
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="WaveParticles" type="Node" parent="."]
+script = ExtResource( 4 )
