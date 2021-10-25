@@ -60,7 +60,7 @@ func _setup_viewport(output_type: int):
 	var rect = ColorRect.new()
 	rect.anchor_left = 0
 	rect.anchor_top = 1
-	rect.anchor_right = 1
+	rect.anchor_right = 0
 	rect.anchor_bottom = 0
 	rect.margin_left = 0
 	rect.margin_top = 0

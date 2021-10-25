@@ -563,6 +563,19 @@ func _update_material_params():
 	if _lookdev_enabled:
 		lookdev_material = _get_lookdev_material()
 
+	# TODO Only get textures the shader supports
+
+	var terrain_textures := {}
+	var res := Vector2(-1, -1)
+	if has_data():
+		for map_type in HTerrainData.CHANNEL_COUNT:
+			var count := _data.get_map_count(map_type)
+			for i in count:
+				var param_name: String = HTerrainData.get_map_shader_param_name(map_type, i)
+				terrain_textures[param_name] = _data.get_texture(map_type, i)
+		res.x = _data.get_resolution()
+		res.y = res.x
+
 	# Set all parameters from the terrain sytem.
 
 	if is_inside_tree():
@@ -579,6 +592,12 @@ func _update_material_params():
 			lookdev_material.set_shader_param(SHADER_PARAM_INVERSE_WATER_TRANSFORM, t)
 			lookdev_material.set_shader_param(SHADER_PARAM_INVERSE_TERRAIN_TRANSFORM, t.scaled(Vector3.ONE / _chunk_subdiv))
 			lookdev_material.set_shader_param(SHADER_PARAM_NORMAL_BASIS, normal_basis)
+
+		for param_name in terrain_textures:
+			var tex = terrain_textures[param_name]
+			_material.set_shader_param(param_name, tex)
+			if lookdev_material != null:
+				lookdev_material.set_shader_param(param_name, tex)
 
 
 static func _get_common_shader_params(shader1: Shader, shader2: Shader) -> Array:

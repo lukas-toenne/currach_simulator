@@ -37,7 +37,7 @@ const _wave_api_shader_params = {
 
 	"u_wave_kernel_pos": true,
 	"u_wave_kernel_pos_dx": true,
-	"u_wave_kernel_pos_y": true,
+	"u_wave_kernel_pos_dy": true,
 	"u_wave_kernel_pos_dz": true,
 	"u_wave_kernel_particle": true,
 }

@@ -45,7 +45,7 @@ _global_script_class_icons={
 [application]
 
 config/name="Currach Simulator"
-run/main_scene="res://assets/terrain_test/wave_particle_test.tscn"
+run/main_scene="res://assets/terrain_test/terrain_test.tscn"
 config/icon="res://icon.png"
 
 [autoload]
