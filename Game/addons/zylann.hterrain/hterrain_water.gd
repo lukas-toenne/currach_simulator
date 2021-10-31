@@ -1,4 +1,3 @@
-tool
 extends Spatial
 
 const QuadTreeLod = preload("./util/quad_tree_lod.gd")
@@ -67,8 +66,6 @@ var _chunks := []
 var _chunk_size: int = 32
 var _chunk_subdiv: int = 4
 var _pending_chunk_updates := []
-
-var _detail_layers := []
 
 # Stats & debug
 var _updated_chunks := 0
@@ -493,38 +490,18 @@ func _on_data_region_changed(min_x, min_y, size_x, size_y, channel):
 
 
 func _on_data_map_changed(type: int, index: int):
-	if type == HTerrainData.CHANNEL_DETAIL \
-	or type == HTerrainData.CHANNEL_HEIGHT \
-	or type == HTerrainData.CHANNEL_NORMAL \
-	or type == HTerrainData.CHANNEL_GLOBAL_ALBEDO:
-
-		for layer in _detail_layers:
-			layer.update_material()
-
 	if type != HTerrainData.CHANNEL_DETAIL:
 		_material_params_need_update = true
 
 
 func _on_data_map_added(type: int, index: int):
-	if type == HTerrainData.CHANNEL_DETAIL:
-		for layer in _detail_layers:
-			# Shift indexes up since one was inserted
-			if layer.layer_index >= index:
-				layer.layer_index += 1
-			layer.update_material()
-	else:
+	if type != HTerrainData.CHANNEL_DETAIL:
 		_material_params_need_update = true
 	Util.update_configuration_warning(self, true)
 
 
 func _on_data_map_removed(type: int, index: int):
-	if type == HTerrainData.CHANNEL_DETAIL:
-		for layer in _detail_layers:
-			# Shift indexes down since one was removed
-			if layer.layer_index > index:
-				layer.layer_index -= 1
-			layer.update_material()
-	else:
+	if type != HTerrainData.CHANNEL_DETAIL:
 		_material_params_need_update = true
 	Util.update_configuration_warning(self, true)
 
@@ -663,10 +640,6 @@ const s_rdirs = [
 ]
 
 
-func _edit_update_viewer_position(camera: Camera):
-	_update_viewer_position(camera)
-
-
 func _update_viewer_position(camera: Camera):
 	if camera == null:
 		var viewport := get_viewport()
@@ -696,6 +669,10 @@ func _update_viewer_position(camera: Camera):
 
 
 func _process(delta: float):
+	_handle_chunk_updates()
+
+
+func _handle_chunk_updates():
 	if !Engine.is_editor_hint():
 		# In editor, the camera is only accessible from an editor plugin
 		_update_viewer_position(null)
@@ -714,12 +691,6 @@ func _process(delta: float):
 			#var time_elapsed = OS.get_ticks_msec() - time_before
 			#if Engine.get_frames_drawn() % 60 == 0:
 			#	_logger.debug(str("Lodder time: ", time_elapsed))
-
-		if _data.get_map_count(HTerrainData.CHANNEL_DETAIL) > 0:
-			# Note: the detail system is not affected by map scale,
-			# so we have to send viewer position in world space
-			for layer in _detail_layers:
-				layer.process(delta, _viewer_pos_world)
 
 	_updated_chunks = 0
 

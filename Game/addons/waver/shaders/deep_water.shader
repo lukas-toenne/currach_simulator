@@ -134,6 +134,13 @@ uniform sampler2D flow_map;
 uniform vec2 flow_map_origin = vec2(0, 0);
 uniform vec2 flow_map_scale = vec2(1, 1);
 
+// Make sure the particle simulation shaders and scripts are updated when changing width.
+const int IDX_PARTICLE_START = 4;
+const int WAVE_PARTICLE_PIXELS = 4;
+const int WAVE_PARTICLE_TEXTURE_WIDTH = 1024;
+uniform sampler2D u_wave_particles;
+uniform int u_num_wave_particles;
+
 float cell_size()
 {
 	return wave_speed * wave_lifetime + wave_radius;
@@ -202,12 +209,75 @@ void wave_kernel_uv(vec2 p, vec2 center, vec2 travel, float lambda, out vec2 ker
 	kernel_matrix = mat3(vec3(dir.x, 0, dir.y), vec3(0, 1, 0), vec3(-dir.y, 0, dir.x));
 }
 
+void wave_add_kernel(
+	vec4 wpos,
+	vec3 world_dx,
+	vec3 world_dy,
+	vec2 center,
+	vec2 travel,
+	float amp,
+	float lambda,
+	float life,
+	float random,
+	inout vec3 X,
+	inout vec3 dXdt,
+	inout mat3 dXdp,
+	inout vec3 color)
+{
+	vec2 ker_uv;
+	mat2 ker_duv;
+	mat3 ker_matrix;
+	wave_kernel_uv(wpos.xz, center, travel, lambda, ker_uv, ker_duv, ker_matrix);
+	if (ker_uv.x < 0.0 || ker_uv.x > 1.0 || ker_uv.y < 0.0 || ker_uv.y > 1.0)
+	{
+		return;
+	}
+
+	// Derivative of texture UV coordinates per screen pixel.
+	ker_duv = ker_duv * mat2(world_dx.xz, world_dy.xz);
+	
+	// Time envelope
+	float timefac = 0.5 * (1.0 - cos(2.0 * PI * life));
+	amp *= timefac;
+	random *= timefac;
+
+	// XXX Procedural kernel function: no texture lookup but lacks filtering (mipmaps)
+//	vec3 ker_X;
+//	mat3 ker_dXdp;
+//	vec3 ker_dXdt;
+//	vec3 ker_color;
+//	wave_kernel(wpos.xz, amp, center, travel, lambda, dt, ker_X, ker_dXdt, ker_dXdp, ker_color);
+
+	ivec2 tex_size = textureSize(u_wave_kernel_particle, 0);
+//				ivec2 tex_size_sq = tex_size * tex_size;
+	ivec2 tex_size_sq = ivec2(1);
+	// L2,1 norm used for LOD
+	float ker_max = max(dot(ker_duv[0], ker_duv[0]) * float(tex_size_sq.x), dot(ker_duv[1], ker_duv[1]) * float(tex_size_sq.y));
+	float ker_lod = 0.5 * log2(ker_max);
+
+	vec3 ker_X = textureLod(u_wave_kernel_pos, ker_uv, ker_lod).rgb * 2.0 - 1.0;
+	mat3 ker_dXdp = (mat3(
+		textureLod(u_wave_kernel_pos_dx, ker_uv, ker_lod).xyz,
+		textureLod(u_wave_kernel_pos_dy, ker_uv, ker_lod).xyz,
+		textureLod(u_wave_kernel_pos_dz, ker_uv, ker_lod).xyz) * 2.0 - 1.0);
+	vec3 ker_color = textureLod(u_wave_kernel_particle, ker_uv, ker_lod).rgb;
+
+	X += ker_matrix * ker_X * amp;
+	dXdp = dXdp + ker_matrix * ker_dXdp * amp;
+//	dXdt += ker_dXdt;
+	
+//	vec3 k = vec3(mod(random * 6.0 + 5.0, 6.0), mod(random * 6.0 + 3.0, 6.0), mod(random * 6.0 + 1.0, 6.0));
+//	vec3 hue_color = 1.0 - max(vec3(0), min(k, min(4.0 - k, vec3(1))));
+//	color += clamp(ker_color.r + ker_color.g * 0.5 + ker_color.b * 0.1, 0, 1.0) * hue_color;
+	color += clamp(ker_color.r + ker_color.g * 0.5 + ker_color.b * 0.1, 0, 1.0) * mix(vec3(1, 0, 0), vec3(0, 0, 1), random);
+}
+
 float rayleigh_sample(float mean, float u)
 {
 	return mean * sqrt(max(-4.0 / PI * log(1.0 - u), 0.0));
 }
 
-void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, out float dir, out float lambda, out float alpha, out vec3 color)
+void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, out float dir, out float lambda, out float life, out float color)
 {
 	vec3 rand1 = hash(vec3(float(seed), cell.y, cell.x)) * 0.5 + 0.5;
 	float phase_shift = rand1.x;
@@ -215,7 +285,7 @@ void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, ou
 	// Should keep a rolling value in 0..1 range incremenenting by dt,
 	// but has to happen outside of the shader.
 	float sample_phase = t / wave_lifetime + phase_shift;
-	alpha = fract(sample_phase);
+	life = fract(sample_phase);
 	// Derived seed value that changes with each iteration
 	float nseed = float(seed) + 82.3 * floor(sample_phase);
 	vec3 rand2 = hash(vec3(cell.x, cell.y, nseed)) * 0.5 + 0.5;
@@ -265,7 +335,97 @@ void wave_sample(vec2 cell, int seed, float t, out float amp, out vec2 start, ou
 //	dir = 0.0;
 // <<< FLOW METHODS
 
-	color = rand2;
+	color = rand2.x;
+}
+
+void header_pack(ivec2 uv, float time, int count, float count_frac, out vec4 col)
+{
+	int type = uv.x;
+	switch (type)
+	{
+		case 0:
+			col = vec4(time, intBitsToFloat(count), count_frac, 0);
+			break;
+		
+		default:
+			col = vec4(0);
+			break;
+	}
+}
+
+void header_unpack(sampler2D tex, out float time, out int count, out float count_frac)
+{
+	ivec2 uv0 = ivec2(0, 0);
+//	ivec2 uv1 = ivec2(1, 0);
+	vec4 col0 = texelFetch(tex, uv0, 0);
+//	vec4 col1 = texelFetch(tex, uv1, 0);
+	time = col0.r;
+	count = floatBitsToInt(col0.g);
+	count_frac = col0.b;
+}
+
+void particle_pack(ivec2 uv, int flags, float birth_time, vec2 pos, vec2 vel, out vec4 col)
+{
+	int type = (uv.x - IDX_PARTICLE_START) % WAVE_PARTICLE_PIXELS;
+//	int texel = uv.x + uv.y * WAVE_PARTICLE_TEXTURE_WIDTH;
+	switch (type)
+	{
+		case 0:
+			col = vec4(intBitsToFloat(flags), birth_time, 0, 0);
+			break;
+
+		case 1:
+			col = vec4(pos.xy, vel.xy);
+			break;
+
+		default:
+			col = vec4(0);
+			break;
+	}
+}
+
+void particle_unpack(sampler2D tex, ivec2 uv, out int flags, out float birth_time, out vec2 pos, out vec2 vel)
+{
+	int k = uv.x - IDX_PARTICLE_START;
+	ivec2 uv0 = ivec2(IDX_PARTICLE_START + k - k % WAVE_PARTICLE_PIXELS, uv.y);
+	ivec2 uv1 = uv0 + ivec2(1, 0);
+	ivec2 uv2 = uv0 + ivec2(2, 0);
+	ivec2 uv3 = uv0 + ivec2(3, 0);
+	vec4 col0 = texelFetch(tex, uv0, 0);
+	vec4 col1 = texelFetch(tex, uv1, 0);
+	vec4 col2 = texelFetch(tex, uv2, 0);
+	vec4 col3 = texelFetch(tex, uv3, 0);
+	flags = floatBitsToInt(col0.x);
+	birth_time = col0.y;
+	pos = col1.xy;
+	vel = col1.zw;
+}
+
+bool get_particle_index(ivec2 uv, out int index)
+{
+	int texel = int(uv.x) + int(uv.y) * WAVE_PARTICLE_TEXTURE_WIDTH;
+	if (texel >= IDX_PARTICLE_START)
+	{
+		index = (texel - IDX_PARTICLE_START) / WAVE_PARTICLE_PIXELS;
+		return true;
+	}
+	else
+	{
+		index = -1;
+		return false;
+	}
+}
+
+ivec2 get_particle_uv(int index)
+{
+	int texel = index * WAVE_PARTICLE_PIXELS + IDX_PARTICLE_START;
+	return ivec2(texel % WAVE_PARTICLE_TEXTURE_WIDTH, texel / WAVE_PARTICLE_TEXTURE_WIDTH);
+}
+
+int get_particle_count(sampler2D tex)
+{
+	vec4 col = texelFetch(tex, ivec2(0, 0), 0);
+	return floatBitsToInt(col.r);
 }
 
 void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out vec3 X, out vec3 dXdt, out mat3 dXdp, out vec3 particle_color)
@@ -286,9 +446,9 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 	float travel_dist = wave_speed * wave_lifetime;
 	float dalpha = dt / wave_lifetime;
 	
-	float cx = floor(wpos.x / cell_size());
-	float cy = floor(wpos.z / cell_size());
+	ivec2 wave_cell = ivec2(wpos.xz / cell_size());
 	
+	// Stochastic random particles
 	int samples = int(u_wave_density);
 	for (int j = -1; j <= 1; ++j)
 	{
@@ -296,62 +456,53 @@ void wave_sum(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out ve
 		{
 			for (int k = 0; k < samples; ++k)
 			{
-				vec2 cell = vec2(cx + float(i), cy + float(j));
+				ivec2 cell = wave_cell + ivec2(i, j);
 				
 				float amp;
 				vec2 start;
 				float dir;
 				float lambda;
-				float alpha;
-				vec3 color;
-				wave_sample(cell, k, t, amp, start, dir, lambda, alpha, color);
+				float life;
+				float random;
+				wave_sample(vec2(cell), k, t, amp, start, dir, lambda, life, random);
 
 				vec2 travel = vec2(cos(dir), sin(dir)) * travel_dist;
-				vec2 center = start + alpha * travel;
-				vec2 ker_uv;
-				mat2 ker_duv;
-				mat3 ker_matrix;
-				wave_kernel_uv(wpos.xz, center, travel, lambda, ker_uv, ker_duv, ker_matrix);
-				if (ker_uv.x < 0.0 || ker_uv.x > 1.0 || ker_uv.y < 0.0 || ker_uv.y > 1.0)
-				{
-					continue;
-				}
-				// Derivative of texture UV coordinates per screen pixel.
-				ker_duv = ker_duv * mat2(world_dx.xz, world_dy.xz);
-				
-				// Time envelope
-				float timefac = 0.5 * (1.0 - cos(2.0 * PI * alpha));
-				amp *= timefac;
-				color *= timefac;
-
-				// XXX Procedural kernel function: no texture lookup but lacks filtering (mipmaps)
-//				vec3 ker_X;
-//				mat3 ker_dXdp;
-//				vec3 ker_dXdt;
-//				vec3 ker_color;
-//				wave_kernel(wpos.xz, amp, center, travel, lambda, dt, ker_X, ker_dXdt, ker_dXdp, ker_color);
-
-				ivec2 tex_size = textureSize(u_wave_kernel_particle, 0);
-//				ivec2 tex_size_sq = tex_size * tex_size;
-				ivec2 tex_size_sq = ivec2(1);
-				// L2,1 norm used for LOD
-				float ker_max = max(dot(ker_duv[0], ker_duv[0]) * float(tex_size_sq.x), dot(ker_duv[1], ker_duv[1]) * float(tex_size_sq.y));
-				float ker_lod = 0.5 * log2(ker_max);
-
-				vec3 ker_X = textureLod(u_wave_kernel_pos, ker_uv, ker_lod).rgb * 2.0 - 1.0;
-				mat3 ker_dXdp = (mat3(
-					textureLod(u_wave_kernel_pos_dx, ker_uv, ker_lod).xyz,
-					textureLod(u_wave_kernel_pos_dy, ker_uv, ker_lod).xyz,
-					textureLod(u_wave_kernel_pos_dz, ker_uv, ker_lod).xyz) * 2.0 - 1.0);
-				vec3 ker_color = textureLod(u_wave_kernel_particle, ker_uv, ker_lod).rgb;
-
-				X += ker_matrix * ker_X * amp;
-				dXdp = dXdp + ker_matrix * ker_dXdp * amp;
-//				dXdt += ker_dXdt;
-				particle_color += clamp(ker_color.r + ker_color.g * 0.5 + ker_color.b * 0.1, 0, 1.0) * color;
+				vec2 center = start + life * travel;
+				wave_add_kernel(wpos, world_dx, world_dy, center, travel, amp, lambda, life, random, X, dXdt, dXdp, particle_color);
 			}
 		}
 	}
+	
+	// Simulated dynamic particles
+	float par_time;
+	int par_count;
+	float par_count_frac;
+	header_unpack(u_wave_particles, par_time, par_count, par_count_frac);
+	for (int k = 0; k < u_num_wave_particles; ++k)
+	{
+		vec2 par_pos, par_vel;
+		int par_flags;
+		float par_birth_time;
+		particle_unpack(u_wave_particles, get_particle_uv(k), par_flags, par_birth_time, par_pos, par_vel);
+
+		ivec2 par_cell = ivec2(par_pos / cell_size());
+		ivec2 cell_diff = par_cell - wave_cell;
+		if (cell_diff.x < -1 || cell_diff.x > 1 || cell_diff.y < -1 || cell_diff.y > 1)
+		{
+			continue;
+		}
+		
+		float amp = 0.01;
+		float lambda = wave_length;
+		float life = 0.5;
+		float random = 0.5;
+		vec2 travel = par_vel;
+		vec2 center = par_pos + life * travel;
+		wave_add_kernel(wpos, world_dx, world_dy, center, travel, amp, lambda, life, random, X, dXdt, dXdp, particle_color);
+//		wave_add_kernel(wpos, world_dx, world_dy, vec2(0.5, 0.5), vec2(1.0, 0.0), amp, lambda, life, random, X, dXdt, dXdp, particle_color);
+	}
+
+//	wave_add_kernel(vec4(1.0, 0.0, 1.0, 1.0), world_dx, world_dy, vec2(0.5, 0.5), vec2(1, 0), 1.0, 3.0, 0.5, 0.0, X, dXdt, dXdp, particle_color);
 }
 
 void waves(vec4 wpos, float t, float dt, mat4 world_projection_matrix, out vec3 position, out vec3 velocity, out vec3 normal, out vec3 tangent, out float foam, out vec3 particle_color)

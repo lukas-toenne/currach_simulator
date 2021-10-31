@@ -1,6 +1,5 @@
 # Bakes a single wave kernel as a texture with mipmaps for filtering.
 
-tool
 extends Node
 
 const WaveKernelShader = preload("./shaders/wave_kernel.shader")

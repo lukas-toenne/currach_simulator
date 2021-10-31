@@ -2,6 +2,7 @@ tool
 extends "res://addons/zylann.hterrain/hterrain_water.gd"
 
 const WaveBaker = preload("./wave_baker.gd")
+const WaveParticles = preload("./wave_particles.gd")
 
 const SHADER_PARAM_WAVE_AMPLITUDE = "u_wave_amplitude"
 const SHADER_PARAM_WAVE_DENSITY = "u_wave_density"
@@ -10,6 +11,9 @@ const SHADER_PARAM_WAVE_KERNEL_POS_DX = "u_wave_kernel_pos_dx"
 const SHADER_PARAM_WAVE_KERNEL_POS_DY = "u_wave_kernel_pos_dy"
 const SHADER_PARAM_WAVE_KERNEL_POS_DZ = "u_wave_kernel_pos_dz"
 const SHADER_PARAM_WAVE_KERNEL_PARTICLE = "u_wave_kernel_particle"
+
+const SHADER_PARAM_WAVE_PARTICLES = "u_wave_particles"
+const SHADER_PARAM_NUM_WAVE_PARTICLES = "u_num_wave_particles"
 
 const SHADER_PARAM_TIME = "time"
 const SHADER_PARAM_DELTA_TIME = "delta_time"
@@ -24,6 +28,8 @@ var _wave_kernel_particle: Texture = ImageTexture.new()
 
 var _wave_amplitude := 0.1
 var _wave_density := 20.0
+
+var _wave_particles := WaveParticles.new()
 
 var _use_editor_time := true
 var _editor_time := 0.0
@@ -124,6 +130,16 @@ func _init():
 	_wave_baker.bake()
 
 
+func _enter_tree():
+	add_child(_wave_particles)
+#	_wave_particles.set_num_particles(10)
+	_material_params_need_update = true
+
+
+func _exit_tree():
+	remove_child(_wave_particles)
+
+
 func _update_wave_kernel():
 	var flags = Texture.FLAG_MIPMAPS | Texture.FLAG_FILTER;
 	_wave_kernel_pos.create_from_image(_wave_baker._images[_wave_baker.OutputType.POSITION], flags)
@@ -161,7 +177,12 @@ func _update_material_params():
 		if _use_editor_time:
 			_material.set_shader_param(SHADER_PARAM_TIME, _editor_time)
 			_material.set_shader_param(SHADER_PARAM_DELTA_TIME, _editor_delta_time)
-		
+
+		# XXX Using viewport texture in the editor leads to stale resource references in the scene.
+		if !Engine.is_editor_hint():
+			_material.set_shader_param(SHADER_PARAM_WAVE_PARTICLES, _wave_particles.get_particle_texture())
+#			_material.set_shader_param(SHADER_PARAM_NUM_WAVE_PARTICLES, _wave_particles.get_num_particles())
+
 		if lookdev_material != null:
 			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_AMPLITUDE, _wave_amplitude)
 			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_DENSITY, _wave_density)
@@ -170,6 +191,8 @@ func _update_material_params():
 			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DY, _wave_kernel_pos_dy)
 			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_POS_DZ, _wave_kernel_pos_dz)
 			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_KERNEL_PARTICLE, _wave_kernel_particle)
+
+			lookdev_material.set_shader_param(SHADER_PARAM_WAVE_PARTICLES, _wave_particles.viewport.get_texture())
 
 
 func _get_region_aabb(cpos_x: int, cpos_y: int, lod: int) -> AABB:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://addons/zylann.hterrain/hterrain.gd" type="Script" id=1]
 [ext_resource path="res://addons/zylann.hterrain/hterrain_texture_set.gd" type="Script" id=2]
@@ -8,19 +8,11 @@
 [ext_resource path="res://assets/ground/eisklotz_sand-01-color.jpg" type="Texture" id=6]
 [ext_resource path="res://default_env.tres" type="Environment" id=7]
 [ext_resource path="res://addons/waver/shaders/deep_water.shader" type="Shader" id=8]
-[ext_resource path="res://addons/waver/wave_particles.gd" type="Script" id=9]
-[ext_resource path="res://addons/waver/shaders/wave_particles.shader" type="Shader" id=12]
 
 [sub_resource type="Resource" id=1]
 script = ExtResource( 2 )
 mode = 0
 textures = [ [ ExtResource( 6 ) ], [ ExtResource( 5 ) ] ]
-
-[sub_resource type="ShaderMaterial" id=2]
-shader = ExtResource( 12 )
-
-[sub_resource type="PlaneMesh" id=3]
-size = Vector2( 0.1, 0.1 )
 
 [node name="Spatial" type="Spatial"]
 
@@ -49,25 +41,26 @@ shader_params/u_colormap_opacity_per_texture = Plane( 1, 1, 1, 1 )
 
 [node name="WaterSurface" type="Spatial" parent="."]
 script = ExtResource( 4 )
-wave_amplitude = 0.15814
-wave_density = 40.0
+wave_amplitude = 0.0689922
+wave_density = 0.0
 _terrain_data = ExtResource( 3 )
 chunk_size = 32
-chunk_subdiv = 8
+chunk_subdiv = 4
 custom_shader = ExtResource( 8 )
 render_layers = 1
-shader_params/wave_length = 2.424
+shader_params/wave_length = 3.0
 shader_params/wave_speed = 1.0
 shader_params/wave_lifetime = 3.0
 shader_params/wave_radius = 3.0
 shader_params/flow_map_origin = Vector2( 0, 0 )
 shader_params/flow_map_scale = Vector2( 1, 1 )
+shader_params/u_num_wave_particles = 10
 shader_params/wave_kernel_color_factor = 0.5
-shader_params/time = 1853.44
-shader_params/use_detail = true
-shader_params/detail_amplitude = 0.082
-shader_params/detail_scale = 0.535
-shader_params/detail_speed = 0.267
+shader_params/time = 84.9317
+shader_params/use_detail = false
+shader_params/detail_amplitude = 0.25
+shader_params/detail_scale = 1.0
+shader_params/detail_speed = 1.0
 shader_params/foam_scale = 10.0
 shader_params/foam_min = 0.0
 shader_params/foam_max = 1.0
@@ -76,19 +69,10 @@ shader_params/water_density = 0.1
 shader_params/sss_strength = 7.0
 shader_params/beach_alpha_fadeout = 0.05
 shader_params/use_flat_shader = false
-shader_params/particle_viz = 0.0
+shader_params/particle_viz = 1.0
 shader_params/flow_map = null
-
-[node name="Particles" type="Particles" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 174.531, 0.214336, 109.43 )
-visible = false
-visibility_aabb = AABB( -100, -100, -100, 200, 200, 200 )
-process_material = SubResource( 2 )
-draw_pass_1 = SubResource( 3 )
-
-[node name="WaveParticles" type="Node" parent="."]
-script = ExtResource( 9 )
+shader_params/u_wave_particles = null
 
 [node name="Camera" type="Camera" parent="."]
-transform = Transform( 1, 0, 0, 0, 0.942869, 0.333165, 0, -0.333165, 0.942869, 163.348, 3.69417, 152.573 )
+transform = Transform( 0.959648, -0.161436, 0.230247, -0.210865, 0.128581, 0.969022, -0.18604, -0.978471, 0.0893508, 4.45006, 7.90774, 3.35424 )
 current = true

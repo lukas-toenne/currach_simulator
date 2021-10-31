@@ -12,6 +12,9 @@ shader = ExtResource( 3 )
 position = Vector2( 8.73071, 9.12756 )
 script = ExtResource( 2 )
 
+[node name="WaveParticles" type="Node" parent="."]
+script = ExtResource( 4 )
+
 [node name="ColorRect" type="ColorRect" parent="."]
 material = SubResource( 1 )
 margin_left = 47.4897
@@ -21,6 +24,3 @@ margin_bottom = 134.323
 __meta__ = {
 "_edit_use_anchors_": false
 }
-
-[node name="WaveParticles" type="Node" parent="."]
-script = ExtResource( 4 )

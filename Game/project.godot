@@ -45,13 +45,18 @@ _global_script_class_icons={
 [application]
 
 config/name="Currach Simulator"
-run/main_scene="res://assets/terrain_test/terrain_test.tscn"
+run/main_scene="res://assets/bitonic_sort/bitonic_test.tscn"
 config/icon="res://icon.png"
 
 [autoload]
 
 Global="*res://scripts/global.gd"
 Menu="*res://scripts/menu.gd"
+
+[display]
+
+window/size/width=512
+window/size/height=512
 
 [editor_plugins]
 

@@ -47,7 +47,6 @@ const MENU_ABOUT = 9
 
 
 var _terrain : HTerrain = null
-var _water : HTerrainWater = null
 
 # GUI
 var _panel = null
@@ -344,14 +343,13 @@ func _exit_tree():
 
 
 func handles(object):
-	return _get_terrain_from_object(object) != null || _get_water_from_object(object) != null
+	return _get_terrain_from_object(object) != null
 
 
 func edit(object):
 	_logger.debug(str("Edit ", object))
 	
 	_connect_terrain(object)
-	_connect_water(object)
 
 
 func _connect_terrain(object):
@@ -384,17 +382,6 @@ func _connect_terrain(object):
 	_update_toolbar_menu_availability()
 
 
-func _connect_water(object):
-	if _water != null:
-		_water.disconnect("tree_exited", self, "_water_exited_scene")
-	
-	var water = _get_water_from_object(object)
-	_water = water
-	
-	if _water != null:
-		_water.connect("tree_exited", self, "_water_exited_scene")
-
-
 func _release_terrain():
 	_logger.debug(str("Releasing terrain ", _terrain))
 	
@@ -417,15 +404,6 @@ func _release_terrain():
 	_update_toolbar_menu_availability()
 
 
-func _release_water():
-	_logger.debug(str("Releasing water ", _water))
-	
-	if _water != null:
-		_water.disconnect("tree_exited", self, "_water_exited_scene")
-	
-	_water = null
-
-
 static func _get_terrain_from_object(object):
 	if object != null and object is Spatial:
 		if not object.is_inside_tree():
@@ -434,15 +412,6 @@ static func _get_terrain_from_object(object):
 			return object
 		if object is HTerrainDetailLayer and object.get_parent() is HTerrain:
 			return object.get_parent()
-	return null
-
-
-static func _get_water_from_object(object):
-	if object != null and object is Spatial:
-		if not object.is_inside_tree():
-			return null
-		if object is HTerrainWater:
-			return object
 	return null
 
 
@@ -509,7 +478,7 @@ func _get_pointed_cell_position(mouse_position: Vector2, p_camera: Camera):# -> 
 
 
 func forward_spatial_gui_input(p_camera: Camera, p_event: InputEvent) -> bool:
-	return _forward_terrain_input(p_camera, p_event) || _forward_water_input(p_camera, p_event)
+	return _forward_terrain_input(p_camera, p_event)
 
 func _forward_terrain_input(p_camera: Camera, p_event: InputEvent) -> bool:
 	if _terrain == null || _terrain.get_data() == null:
@@ -569,16 +538,6 @@ func _forward_terrain_input(p_camera: Camera, p_event: InputEvent) -> bool:
 			_brush_decal.update_visibility()
 
 	return captured_event
-
-func _forward_water_input(p_camera: Camera, p_event: InputEvent) -> bool:
-	if _water == null || _water.get_data() == null:
-		return false
-
-	_water._edit_update_viewer_position(p_camera)
-	if _panel:
-		_panel.set_camera_transform(p_camera.global_transform)
-
-	return false
 
 
 func _process(delta: float):
@@ -690,11 +649,6 @@ func _paint_completed(changes: Dictionary):
 func _terrain_exited_scene():
 	_logger.debug("HTerrain exited the scene")
 	_release_terrain()
-
-
-func _water_exited_scene():
-	_logger.debug("HTerrainWater exited the scene")
-	_release_water()
 
 
 func _menu_item_selected(id: int):

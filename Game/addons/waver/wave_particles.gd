@@ -2,12 +2,19 @@
 # This outputs directly to a texture, unlike conventional Godot particle
 # simulation which uses a vertex buffer.
 
-tool
 extends Node
 
 const WaveParticleShader = preload("./shaders/wave_particles.shader")
 
-var _debug_mesh = null
+# Make sure water shaders are updated when changing width.
+const WAVE_PARTICLE_PIXELS = 4;
+const WAVE_PARTICLE_TEXTURE_WIDTH = 1024
+
+#var _num_particles := 0
+var _do_reset := false
+
+var _material_params_need_update := false
+
 
 class Stage:
 	var viewport: Viewport = null
@@ -23,7 +30,7 @@ class Stage:
 		return viewport.size
 
 	func _init(shader: Shader, clear: bool):
-		var viewport_size = Vector2(2, 2)
+		var viewport_size = Vector2(100, 100)
 
 		viewport = Viewport.new()
 		viewport.size = viewport_size
@@ -38,6 +45,7 @@ class Stage:
 		viewport.hdr = true
 		# Disable sRGB transform on output colors
 		viewport.keep_3d_linear = true
+		viewport.transparent_bg = true
 
 		rect = ColorRect.new()
 		rect.anchor_left = 0
@@ -61,31 +69,77 @@ class Stage:
 var _particle_sim: Stage = null
 
 
-func _ready():
+func _init():
 	_particle_sim = Stage.new(WaveParticleShader, true)
+
+
+func _enter_tree():
 	add_child(_particle_sim.viewport)
-	
-	# !!! XXX Small viewport sizes crash Godot !!!
-	# https://github.com/godotengine/godot/issues/24702
-	_particle_sim.size = Vector2(100, 100)
-
-#	_debug_mesh = MeshInstance.new()
-#	add_child(_debug_mesh)
-#	_debug_mesh.mesh = load()
+	if !Engine.is_editor_hint():
+		VisualServer.connect("frame_pre_draw", self, "_on_VisualServer_pre_draw")
 
 
-#func bake():
-#	if _viewports.empty():
-#		_setup_scene()
-#
-#	VisualServer.connect("frame_post_draw", self, "_on_VisualServer_post_draw")
-#	VisualServer.draw()
-#	yield(VisualServer, "frame_post_draw")
-#	VisualServer.disconnect("frame_post_draw", self, "_on_VisualServer_post_draw")
-#
-#	emit_signal("finished")
+func _exit_tree():
+	remove_child(_particle_sim.viewport)
+	if !Engine.is_editor_hint():
+		VisualServer.disconnect("frame_pre_draw", self, "_on_VisualServer_pre_draw")
 
 
-#func _on_VisualServer_post_draw():
-#	for i in _viewports.size():
-#		_images[i] = _viewports[i].get_texture().get_data()
+func _ready():
+	_update_particle_viewport()
+	reset()
+
+
+func _on_VisualServer_pre_draw():
+	_update_material_params()
+
+
+func _update_material_params():
+	if !_material_params_need_update:
+		return
+	_material_params_need_update = false
+
+	_particle_sim.rect.material.set_shader_param("u_reset", _do_reset)
+	if _do_reset:
+		# Flag for shader param update in the next frame to clear the reset flag again.
+		_do_reset = false
+		_material_params_need_update = true
+
+
+func get_particle_texture():
+	if _particle_sim and _particle_sim.viewport:
+		return _particle_sim.viewport.get_texture()
+
+
+func reset():
+	_do_reset = true
+	_material_params_need_update = true
+
+
+#func get_num_particles():
+#	return _num_particles
+
+
+#func clear_particles():
+#	_num_particles = 0
+#	_update_particle_viewport()
+#	_material_params_need_update = true
+
+
+#func set_num_particles(num_particles: int):
+#	_num_particles = num_particles
+#	_update_particle_viewport()
+#	_material_params_need_update = true
+
+
+func _update_particle_viewport():
+	if _particle_sim:
+#		var num_pixels := _num_particles * WAVE_PARTICLE_PIXELS
+#		var num_rows := (num_pixels + WAVE_PARTICLE_TEXTURE_WIDTH - 1) / WAVE_PARTICLE_TEXTURE_WIDTH
+		var num_rows = 8
+		
+		# !!! XXX Smaller viewport sizes crash Godot !!!
+		# https://github.com/godotengine/godot/issues/24702
+		num_rows = max(num_rows, 4)
+		
+		_particle_sim.size = Vector2(WAVE_PARTICLE_TEXTURE_WIDTH, num_rows)
